@@ -1,4 +1,4 @@
-<?php
+/*<?php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -18,6 +18,8 @@ return new class extends Migration
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
             $table->rememberToken();
+            $table->foreignId('rol_id')->constrained('roles')->onDelete('cascade');
+            $table->foreignId('institucion_id')->nullable()->constrained('instituciones')->onDelete('set null');
             $table->timestamps();
         });
 
