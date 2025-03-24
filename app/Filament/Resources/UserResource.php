@@ -37,7 +37,8 @@ class UserResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('rol_id')
                     ->label('Rol')
-                    ->relationship('rol', 'nombre') // Filament lo resuelve automáticamente
+                    ->relationship('rol', 'nombre') // "nombre" debe ser el campo visible del rol
+                    ->searchable()
                     ->required(),
                 Forms\Components\Select::make('institucion_id')
                     ->label('Institución')

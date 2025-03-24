@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models;
-
+use App\Models\Rol;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'rol_id',
+        'institucion_id',
     ];
 
     /**
@@ -45,4 +47,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    public function rol()
+    {
+        return $this->belongsTo(Rol::class, 'rol_id');
+    }
+
+    public function institucion()
+    {
+        return $this->belongsTo(Institucion::class, 'institucion_id');
+    }
+
 }
