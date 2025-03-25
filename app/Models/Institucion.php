@@ -9,7 +9,7 @@ class Institucion extends Model
 {
     use HasFactory;
 
-    protected $table = 'instituciones'; // Asegúrate de que coincide con la BD
+    protected $table = 'instituciones';
 
     protected $fillable = ['nombre', 'descripcion'];
 
