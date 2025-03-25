@@ -5,6 +5,8 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\DelitoResource\Pages;
 use App\Models\Delito;
 use App\Models\Sector;
+use App\Models\CodigoDelito;
+use App\Models\Region;
 use App\Models\Comuna;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -27,6 +29,11 @@ class DelitoResource extends Resource
                 ->required()
                 ->unique(Delito::class, 'codigo')
                 ->maxLength(20),
+            Forms\Components\Select::make('codigo_delito_id')
+                ->label('Código de Delito')
+                ->options(CodigoDelito::pluck('descripcion', 'id'))
+                ->searchable()
+                ->required(),
             Forms\Components\Textarea::make('descripcion')
                 ->label('Descripción')
                 ->required()
@@ -35,10 +42,23 @@ class DelitoResource extends Resource
                 ->label('Sector')
                 ->relationship('sector', 'nombre')
                 ->required(),
+            Forms\Components\Select::make('region_id')
+                ->label('Región')
+                ->options(Region::pluck('nombre', 'id'))
+                ->required()
+                ->live(),
             Forms\Components\Select::make('comuna_id')
                 ->label('Comuna')
-                ->relationship('comuna', 'nombre')
-                ->required(),
+                ->options(function (Forms\Get $get) {
+                    $regionId = $get('region_id');
+                    if (!$regionId) {
+                        return Comuna::pluck('nombre', 'id');
+                    }
+                    return Comuna::where('region_id', $regionId)->pluck('nombre', 'id');
+                })
+                ->required()
+                ->searchable()
+                ->preload(),
             Forms\Components\DatePicker::make('fecha')
                 ->label('Fecha del Delito')
                 ->required(),
@@ -52,11 +72,17 @@ class DelitoResource extends Resource
                 ->label('Código')
                 ->sortable()
                 ->searchable(),
+            Tables\Columns\TextColumn::make('codigoDelito.codigo')
+                ->label('Código')
+                ->sortable(),
             Tables\Columns\TextColumn::make('descripcion')
                 ->label('Descripción')
                 ->limit(50),
             Tables\Columns\TextColumn::make('sector.nombre')
                 ->label('Sector')
+                ->sortable(),
+            Tables\Columns\TextColumn::make('region.nombre')
+                ->label('Región')
                 ->sortable(),
             Tables\Columns\TextColumn::make('comuna.nombre')
                 ->label('Comuna')

@@ -11,8 +11,12 @@ class Delito extends Model
 
     protected $table = 'delitos';
 
-    protected $fillable = ['codigo', 'descripcion', 'sector_id', 'comuna_id', 'fecha'];
+    protected $fillable = ['codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha'];
 
+    public function codigoDelito()
+    {
+        return $this->belongsTo(CodigoDelito::class);
+    }
     public function sector()
     {
         return $this->belongsTo(Sector::class, 'sector_id');
@@ -21,6 +25,10 @@ class Delito extends Model
     public function comuna()
     {
         return $this->belongsTo(Comuna::class, 'comuna_id');
+    }
+    public function region()
+    {
+        return $this->belongsTo(Region::class, 'region_id');
     }
 
     public function delincuentes()

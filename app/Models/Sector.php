@@ -10,14 +10,14 @@ class Sector extends Model
     use HasFactory;
 
     protected $table = 'sectores';
-    protected $fillable = ['nombre', 'institucion_id', 'comuna_id'];
+    protected $fillable = ['nombre'];
 
-    public function institucion()
+   /* public function institucion()
     {
         return $this->belongsTo(Institucion::class, 'institucion_id');
     }
     public function comuna()
     {
         return $this->belongsTo(Comuna::class, 'comuna_id');
-    }
+    }*/
 }

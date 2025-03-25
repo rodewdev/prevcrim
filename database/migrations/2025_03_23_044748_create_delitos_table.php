@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('delitos', function (Blueprint $table) {
             $table->id();
-            $table->string('codigo')->unique();
+            $table->foreignId('codigo_delito_id')->constrained('codigos_delitos')->onDelete('cascade');
             $table->text('descripcion');
             $table->foreignId('sector_id')->constrained('sectores')->onDelete('cascade');
             $table->foreignId('comuna_id')->constrained('comunas')->onDelete('cascade');

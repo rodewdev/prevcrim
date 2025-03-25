@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\SectorResource\Pages;
-use App\Filament\Resources\SectorResource\RelationManagers;
-use App\Models\Sector;
+use App\Filament\Resources\CodigoDelitoResource\Pages;
+use App\Filament\Resources\CodigoDelitoResource\RelationManagers;
+use App\Models\CodigoDelito;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -13,27 +13,24 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
-class SectorResource extends Resource
+class CodigoDelitoResource extends Resource
 {
-    protected static ?string $model = Sector::class;
-
+    protected static ?string $model = CodigoDelito::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationLabel = 'Códigos de Delitos';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('nombre')
+                Forms\Components\TextInput::make('codigo')
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('descripcion')
                     ->required()
                     ->maxLength(255),
-                /*Forms\Components\TextInput::make('institucion_id')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\Select::make('comuna_id')
-                    ->label('Comuna')
-                    ->relationship('comuna', 'nombre')
-                    ->searchable()
-                    ->required(),*/
+
             ]);
     }
 
@@ -41,15 +38,10 @@ class SectorResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nombre')
-                    ->searchable(),/*
-                Tables\Columns\TextColumn::make('institucion.nombre')
-                    ->label('Institución')
-                    ->sortable()
+                Tables\Columns\TextColumn::make('codigo')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('comuna_id')
-                    ->numeric()
-                    ->sortable(),*/
+                Tables\Columns\TextColumn::make('descripcion')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -64,6 +56,7 @@ class SectorResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -82,9 +75,9 @@ class SectorResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListSectors::route('/'),
-            'create' => Pages\CreateSector::route('/create'),
-            'edit' => Pages\EditSector::route('/{record}/edit'),
+            'index' => Pages\ListCodigoDelitos::route('/'),
+            'create' => Pages\CreateCodigoDelito::route('/create'),
+            'edit' => Pages\EditCodigoDelito::route('/{record}/edit'),
         ];
     }
 }
