@@ -10,7 +10,7 @@ class RegionComunaSeeder extends Seeder
 {
     public function run(): void
     {
-        $json = File::get(storage_path("app/comunas-regiones.json"));
+        $json = File::get(database_path("data/comunas-regiones.json"));
         $data = json_decode($json, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {

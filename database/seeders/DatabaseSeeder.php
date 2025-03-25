@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call(DelitosTableSeeder::class);
         $this->call(DelincuenteDelitoTableSeeder::class);
         $this->call(UsersTableSeeder::class);
+        $this->call(RegionComunaSeeder::class);
         // User::factory(10)->create();
 
        /* User::factory()->create([
