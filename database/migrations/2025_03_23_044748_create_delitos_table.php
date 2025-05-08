@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('codigo_delito_id')->constrained('codigos_delitos')->onDelete('cascade');
             $table->text('descripcion');
             $table->foreignId('sector_id')->constrained('sectores')->onDelete('cascade');
+            $table->foreignId('region_id')->constrained('regiones')->onDelete('cascade');
             $table->foreignId('comuna_id')->constrained('comunas')->onDelete('cascade');
             $table->date('fecha');
             $table->timestamps();

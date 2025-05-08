@@ -13,6 +13,7 @@ class Delito extends Model
 
     protected $fillable = ['codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha'];
 
+
     public function codigoDelito()
     {
         return $this->belongsTo(CodigoDelito::class);

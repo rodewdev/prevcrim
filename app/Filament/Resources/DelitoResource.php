@@ -14,7 +14,12 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\Filter;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\Select;
+use Illuminate\Support\Str;
+use Filament\Forms\Components\Hidden;
+
 
 class DelitoResource extends Resource
 {
@@ -24,24 +29,37 @@ class DelitoResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\TextInput::make('codigo')
-                ->label('Código')
-                ->required()
-                ->unique(Delito::class, 'codigo')
-                ->maxLength(20),
-            Forms\Components\Select::make('codigo_delito_id')
-                ->label('Código de Delito')
-                ->options(CodigoDelito::pluck('descripcion', 'id'))
+            Hidden::make('delincuente_id'),
+            Forms\Components\Select::make('delincuente_id')
+                ->label('Delincuente (RUT)')
+                ->options(function () {
+                    return \App\Models\Delincuente::all()->mapWithKeys(function ($delincuente) {
+                        return [$delincuente->id => $delincuente->rut . ' - ' . $delincuente->nombre];
+                    });
+                })
                 ->searchable()
                 ->required(),
+            Forms\Components\Select::make('codigo_delito_id')
+                ->label('Código de Delito')
+                ->options(function () {
+                    return CodigoDelito::pluck('codigo', 'id')->map(function ($codigo, $id) {
+                        $codigoDelito = CodigoDelito::find($id);
+                        return $codigo . ' - ' . $codigoDelito->descripcion;
+                    });
+                })
+                ->searchable()
+                ->required()
+                ->reactive()
+                ->afterStateUpdated(function (callable $set, $state) {
+                    if ($state) {
+                        $codigoDelito = CodigoDelito::find($state);
+                        $set('descripcion', $codigoDelito->descripcion);
+                    }
+                }),
             Forms\Components\Textarea::make('descripcion')
                 ->label('Descripción')
                 ->required()
                 ->maxLength(1000),
-            Forms\Components\Select::make('sector_id')
-                ->label('Sector')
-                ->relationship('sector', 'nombre')
-                ->required(),
             Forms\Components\Select::make('region_id')
                 ->label('Región')
                 ->options(Region::pluck('nombre', 'id'))
@@ -59,6 +77,10 @@ class DelitoResource extends Resource
                 ->required()
                 ->searchable()
                 ->preload(),
+            Forms\Components\Select::make('sector_id')
+                ->label('Sector')
+                ->relationship('sector', 'nombre')
+                ->required(),
             Forms\Components\DatePicker::make('fecha')
                 ->label('Fecha del Delito')
                 ->required(),
@@ -68,9 +90,12 @@ class DelitoResource extends Resource
     public static function table(Table $table): Table
     {
         return $table->columns([
-            Tables\Columns\TextColumn::make('codigo')
+            Tables\Columns\TextColumn::make('id')
                 ->label('Código')
                 ->sortable()
+                ->searchable(),
+            Tables\Columns\TextColumn::make('delincuentes.nombre')
+                ->label('Delincuente')
                 ->searchable(),
             Tables\Columns\TextColumn::make('codigoDelito.codigo')
                 ->label('Código')
@@ -78,14 +103,14 @@ class DelitoResource extends Resource
             Tables\Columns\TextColumn::make('descripcion')
                 ->label('Descripción')
                 ->limit(50),
-            Tables\Columns\TextColumn::make('sector.nombre')
-                ->label('Sector')
-                ->sortable(),
             Tables\Columns\TextColumn::make('region.nombre')
                 ->label('Región')
                 ->sortable(),
             Tables\Columns\TextColumn::make('comuna.nombre')
                 ->label('Comuna')
+                ->sortable(),
+            Tables\Columns\TextColumn::make('sector.nombre')
+                ->label('Sector')
                 ->sortable(),
             Tables\Columns\TextColumn::make('fecha')
                 ->label('Fecha')
@@ -97,12 +122,59 @@ class DelitoResource extends Resource
                 ->sortable(),
         ])
             ->filters([
-                SelectFilter::make('sector_id')
-                    ->label('Sector')
-                    ->relationship('sector', 'nombre'),
+                SelectFilter::make('codigo_delito_id')
+                    ->label('Código de Delito')
+                    ->relationship('codigoDelito', 'codigo')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('codigo_delito_descripcion')
+                    ->label('Descripción del Delito')
+                    ->relationship('codigoDelito', 'descripcion')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('region_id')
+                    ->label('Región')
+                    ->relationship('region', 'nombre')
+                    ->searchable()
+                    ->preload(),
+
                 SelectFilter::make('comuna_id')
                     ->label('Comuna')
-                    ->relationship('comuna', 'nombre'),
+                    ->relationship('comuna', 'nombre')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('sector_id')
+                    ->label('Sector')
+                    ->relationship('sector', 'nombre')
+                    ->searchable()
+                    ->preload(),
+
+                SelectFilter::make('delincuente_id')
+                    ->label('Delincuente')
+                    ->relationship('delincuentes', 'nombre')
+                    ->searchable()
+                    ->preload()
+                    ->multiple(),
+
+                Filter::make('fecha_comision')
+                    ->form([
+                        Forms\Components\DatePicker::make('fecha_desde'),
+                        Forms\Components\DatePicker::make('fecha_hasta'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['fecha_desde'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_comision', '>=', $date),
+                            )
+                            ->when(
+                                $data['fecha_hasta'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_comision', '<=', $date),
+                            );
+                    })
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Forms\Components\DatePicker;
 
 class DelincuenteResource extends Resource
 {
@@ -79,43 +80,75 @@ class DelincuenteResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            Tables\Columns\TextColumn::make('rut')
-                ->label('RUT')
-                ->searchable(),
-            Tables\Columns\TextColumn::make('nombre')
-                ->label('Nombre')
-                ->sortable()
-                ->searchable(),
-            Tables\Columns\TextColumn::make('alias')
-                ->label('Alias'),
-            Tables\Columns\TextColumn::make('domicilio')
-                ->label('Domicilio')
-                ->limit(50),
-            Tables\Columns\BadgeColumn::make('estado')
-                ->label('Estado')
-                ->colors([
-                    'danger' => 'P',
-                    'warning' => 'A',
-                    'success' => 'L',
-                ])
-                ->sortable(),
-            Tables\Columns\ImageColumn::make('foto')
-                ->label('Foto')
-                ->size(50),
-            Tables\Columns\TextColumn::make('created_at')
-                ->label('Fecha de Creación')
-                ->dateTime()
-                ->sortable(),
-        ])
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('rut')
+                    ->label('RUT')
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('nombre')
+                    ->label('Nombre')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('alias')
+                    ->label('Alias'),
+                Tables\Columns\TextColumn::make('domicilio')
+                    ->label('Domicilio')
+                    ->limit(50),
+                Tables\Columns\BadgeColumn::make('estado')
+                    ->label('Estado')
+                    ->colors([
+                        'danger' => 'P',
+                        'warning' => 'A',
+                        'success' => 'L',
+                    ])
+                    ->sortable(),
+                Tables\Columns\ImageColumn::make('foto')
+                    ->label('Foto')
+                    ->size(50),
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Fecha de Creación')
+                    ->dateTime()
+                    ->sortable(),
+            ])
             ->filters([
                 SelectFilter::make('estado')
-                    ->label('Estado')
                     ->options([
                         'P' => 'Preso',
                         'L' => 'Libre',
                         'A' => 'Orden de Arresto',
                     ]),
+                SelectFilter::make('codigo_delito')
+                    ->relationship('delitos.codigoDelito', 'codigo')
+                    ->label('Código de Delito'),
+                SelectFilter::make('region')
+                    ->relationship('delitos.region', 'nombre')
+                    ->label('Región'),
+                SelectFilter::make('comuna')
+                    ->relationship('delitos.comuna', 'nombre')
+                    ->label('Comuna'),
+                SelectFilter::make('sector')
+                    ->relationship('delitos.sector', 'nombre')
+                    ->label('Sector'),
+                Tables\Filters\Filter::make('fecha_comision')
+                    ->form([
+                        DatePicker::make('fecha_desde'),
+                        DatePicker::make('fecha_hasta'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['fecha_desde'],
+                                fn (Builder $query, $date): Builder => $query->whereHas('delitos', function ($query) use ($date) {
+                                    $query->whereDate('fecha_comision', '>=', $date);
+                                })
+                            )
+                            ->when(
+                                $data['fecha_hasta'],
+                                fn (Builder $query, $date): Builder => $query->whereHas('delitos', function ($query) use ($date) {
+                                    $query->whereDate('fecha_comision', '<=', $date);
+                                })
+                            );
+                    })
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

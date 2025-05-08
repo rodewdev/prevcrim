@@ -15,6 +15,6 @@ class Delincuente extends Model
 
     public function delitos()
     {
-        return $this->belongsToMany(Delito::class, 'delincuente_delito')->withPivot('fecha_comision', 'observaciones');
+        return $this->belongsToMany(Delito::class, 'delincuente_delito')->withPivot('fecha_comision', 'observaciones')->withTimestamps();
     }
 }
