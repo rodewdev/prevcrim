@@ -23,9 +23,9 @@ class RolResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('nombre')
+                Forms\Components\TextInput::make('name')
                     ->required()
-                    ->unique(Rol::class, 'nombre')
+                    ->unique(Rol::class, 'name')
                     ->maxLength(255),
             ]);
     }
@@ -34,7 +34,7 @@ class RolResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('nombre')
+                Tables\Columns\TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')

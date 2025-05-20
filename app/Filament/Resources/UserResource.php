@@ -37,7 +37,7 @@ class UserResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('rol_id')
                     ->label('Rol')
-                    ->relationship('rol', 'nombre') // "nombre" debe ser el campo visible del rol
+                    ->relationship('rol', 'name') // "nombre" debe ser el campo visible del rol
                     ->searchable()
                     ->required(),
                 Forms\Components\Select::make('institucion_id')
@@ -59,7 +59,7 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email_verified_at')
                     ->dateTime()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('rol.nombre')
+                Tables\Columns\TextColumn::make('rol.name')
                     ->label('Rol')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('institucion.nombre')
