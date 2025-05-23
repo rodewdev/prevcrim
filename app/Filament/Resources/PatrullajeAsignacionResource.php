@@ -12,32 +12,82 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\DB;
 
 class PatrullajeAsignacionResource extends Resource
 {
     protected static ?string $model = PatrullajeAsignacion::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationLabel = 'Asignación de Patrullaje';
 
     public static function form(Form $form): Form
     {
         return $form
         ->schema([
+            Forms\Components\Select::make('region_id')
+    ->label('Región')
+    ->options(function() {
+        return DB::table('comunas as c')
+            ->join('regiones as r', 'c.region_id', '=', 'r.id')  
+            ->join('delitos as d', 'd.comuna_id', '=', 'c.id')
+            ->select('r.id', 'r.nombre')
+            ->distinct()
+            ->pluck('nombre', 'id')
+            ->toArray();
+    })
+    ->required()
+    ->reactive()
+    ->afterStateUpdated(fn ($state, $set) => $set('comuna_id', null)),
+
+            // Selector de COMUNA filtrado por región
             Forms\Components\Select::make('comuna_id')
                 ->label('Comuna')
-                ->relationship('comuna', 'nombre')
+                ->options(function ($get) {
+                    $regionId = $get('region_id');
+                    if (!$regionId) return [];
+                    
+                    // Solo mostrar comunas con delitos de la región seleccionada
+                    return DB::table('comunas as c')
+                        ->join('delitos as d', 'd.comuna_id', '=', 'c.id')
+                        ->where('c.region_id', $regionId)
+                        ->select('c.id', 'c.nombre')
+                        ->distinct()
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                })
                 ->required()
                 ->reactive()
+                ->searchable()
                 ->afterStateUpdated(fn ($state, $set) => $set('sector_id', null)),
 
+            // Selector de SECTOR filtrado por comuna
             Forms\Components\Select::make('sector_id')
                 ->label('Sector')
                 ->options(function ($get) {
                     $comunaId = $get('comuna_id');
                     if (!$comunaId) return [];
-                    return \App\Models\Comuna::find($comunaId)?->sectores()->pluck('nombre', 'id') ?? [];
+                    
+                    // Consulta directa a delitos con JOIN a sectores como pediste
+                    $sectoresConDelitos = DB::table('delitos as d')
+                        ->join('sectores as s', 'd.sector_id', '=', 's.id')
+                        ->join('comunas as c', 'd.comuna_id', '=', 'c.id')
+                        ->where('d.comuna_id', $comunaId)
+                        ->select('s.id', 's.nombre', DB::raw('count(*) as total_delitos'))
+                        ->groupBy('s.id', 's.nombre')
+                        ->having(DB::raw('count(*)'), '>=', 1) // Al menos 1 delito
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                    
+                    // Si no hay sectores con delitos, mostrar mensaje
+                    if (empty($sectoresConDelitos)) {
+                        return ['0' => 'No hay sectores con delitos registrados'];
+                    }
+                    
+                    return $sectoresConDelitos;
                 })
-                ->required(),
+                ->required()
+                ->helperText('Se muestran sectores con al menos 1 delito registrado'),
 
             Forms\Components\Select::make('prioridad')
                 ->label('Prioridad')
@@ -54,7 +104,8 @@ class PatrullajeAsignacionResource extends Resource
 
             Forms\Components\Textarea::make('observaciones')
                 ->label('Observaciones')
-                ->nullable(),
+                ->nullable()
+                ->columnSpanFull(),
 
             Forms\Components\Toggle::make('activo')
                 ->label('Activo')
@@ -72,7 +123,40 @@ class PatrullajeAsignacionResource extends Resource
     {
         return $table
             ->columns([
-                //
+                Tables\Columns\TextColumn::make('comuna.nombre')
+                    ->label('Comuna')
+                    ->searchable()
+                    ->sortable(),
+                    
+                Tables\Columns\TextColumn::make('sector.nombre')
+                    ->label('Sector')
+                    ->searchable()
+                    ->sortable(),
+                    
+                Tables\Columns\TextColumn::make('prioridad')
+                    ->badge()
+                    ->color(fn (int $state): string => match ($state) {
+                        1 => 'danger',
+                        2 => 'warning',
+                        3 => 'success',
+                        default => 'gray',
+                    })
+                    ->formatStateUsing(fn (int $state): string => match ($state) {
+                        1 => 'Alta',
+                        2 => 'Media',
+                        3 => 'Baja',
+                        default => 'No definida',
+                    }),
+                    
+                Tables\Columns\TextColumn::make('fecha_inicio')
+                    ->date(),
+                    
+                Tables\Columns\TextColumn::make('fecha_fin')
+                    ->date()
+                    ->placeholder('No definida'),
+                    
+                Tables\Columns\IconColumn::make('activo')
+                    ->boolean(),
             ])
             ->filters([
                 //
