@@ -55,10 +55,18 @@ class DelincuenteResource extends Resource
             Forms\Components\TextInput::make('nombre')
                 ->label('Nombre')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(255)
+                 ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->validationMessages([
+                'regex' => 'El nombre solo puede contener letras y espacios.',
+            ]),
             Forms\Components\TextInput::make('alias')
                 ->label('Alias')
-                ->maxLength(100),
+                ->maxLength(100)
+                ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->validationMessages([
+                'regex' => 'El alias solo puede contener letras y espacios.',
+            ]),
             Forms\Components\TextInput::make('domicilio')
                 ->label('Domicilio')
                 ->maxLength(255),
