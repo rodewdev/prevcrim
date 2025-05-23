@@ -100,7 +100,7 @@ class DelitoResource extends Resource
     return $query->where('institucion_id', auth()->user()->institucion_id);
     }
 
-    public static function mutateFormDataBeforeCreate(array $data): array
+  public static function mutateFormDataBeforeCreate(array $data): array
 {
     $data['user_id'] = auth()->id();
     $data['institucion_id'] = auth()->user()->institucion_id;

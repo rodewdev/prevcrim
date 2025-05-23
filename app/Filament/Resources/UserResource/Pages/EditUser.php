@@ -10,6 +10,13 @@ class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
+    protected function afterSave(): void
+    {
+        if ($this->data['role'] ?? false) {
+            $this->record->syncRoles([$this->data['role']]);
+        }
+    }
+    
     protected function getHeaderActions(): array
     {
         return [
