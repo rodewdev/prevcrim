@@ -87,6 +87,27 @@ class DelitoResource extends Resource
         ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+    // Si el usuario es Admin General, muestra todo
+        if (auth()->user()->hasRole('Administrador General') || auth()->user()->hasRole('Super Admin')) {
+            return $query;
+    }
+
+    // Si NO, solo muestra delitos de su institución
+    return $query->where('institucion_id', auth()->user()->institucion_id);
+    }
+
+    public static function mutateFormDataBeforeCreate(array $data): array
+{
+    $data['user_id'] = auth()->id();
+    $data['institucion_id'] = auth()->user()->institucion_id;
+    return $data;
+}
+
+
     public static function table(Table $table): Table
     {
         return $table->columns([
@@ -120,6 +141,12 @@ class DelitoResource extends Resource
                 ->label('Fecha de Registro')
                 ->dateTime()
                 ->sortable(),
+                Tables\Columns\TextColumn::make('user.name')
+    ->label('Denunciado por')
+    ->sortable(),
+Tables\Columns\TextColumn::make('institucion.nombre')
+    ->label('Institución')
+    ->sortable(),
         ])
             ->filters([
                 SelectFilter::make('codigo_delito_id')

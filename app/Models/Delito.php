@@ -11,7 +11,7 @@ class Delito extends Model
 
     protected $table = 'delitos';
 
-    protected $fillable = ['codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha'];
+    protected $fillable = ['codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha','user_id', 'institucion_id'];
 
 
     public function codigoDelito()
@@ -35,5 +35,15 @@ class Delito extends Model
     public function delincuentes()
     {
         return $this->belongsToMany(Delincuente::class, 'delincuente_delito')->withPivot('fecha_comision', 'observaciones');
+    }
+
+    public function user()
+{
+    return $this->belongsTo(\App\Models\User::class, 'user_id');
+}
+
+    public function institucion()
+    {
+        return $this->belongsTo(Institucion::class, 'institucion_id');
     }
 }
