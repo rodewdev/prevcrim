@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Models\User; // Asegúrate de importar tu modelo User
+
 class UsersTableSeeder extends Seeder
 {
     /**
@@ -13,14 +13,14 @@ class UsersTableSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('users')->insert([
-            [
-                'name' => 'Admin General',
-                'email' => 'admin@sipc.com',
-                'password' => Hash::make('123456'),
-                'rol_id' => 1,
-                'institucion_id' => 1
-            ]
-    ]);
+        $user = User::create([
+            'name' => 'Admin General',
+            'email' => 'admin@sipc.com',
+            'password' => Hash::make('123456'),
+            'institucion_id' => 1
+        ]);
+
+       
+        $user->assignRole('Administrador General');
     }
 }

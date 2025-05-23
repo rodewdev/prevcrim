@@ -3,15 +3,14 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserResource\Pages;
-use App\Filament\Resources\UserResource\RelationManagers;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Hash;
 
 class UserResource extends Resource
 {
@@ -33,16 +32,17 @@ class UserResource extends Resource
                 Forms\Components\DateTimePicker::make('email_verified_at'),
                 Forms\Components\TextInput::make('password')
                     ->password()
-                    ->required()
+                    ->dehydrateStateUsing(fn($state) => !empty($state) ? Hash::make($state) : null)
+                    ->required(fn($context) => $context === 'create')
                     ->maxLength(255),
-                Forms\Components\Select::make('rol_id')
+                Forms\Components\Select::make('role')
                     ->label('Rol')
-                    ->relationship('rol', 'name') // "nombre" debe ser el campo visible del rol
+                    ->options(Role::pluck('name', 'name'))
                     ->searchable()
                     ->required(),
                 Forms\Components\Select::make('institucion_id')
                     ->label('Institución')
-                    ->relationship('institucion', 'nombre') // Filament lo resuelve automáticamente
+                    ->relationship('institucion', 'nombre')
                     ->searchable()
                     ->nullable(),
             ]);
@@ -52,27 +52,13 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('email')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('email_verified_at')
-                    ->dateTime()
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('rol.name')
-                    ->label('Rol')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('institucion.nombre')
-                    ->label('Institución')
-                    ->sortable(),
-                Tables\Columns\TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('name')->searchable(),
+                Tables\Columns\TextColumn::make('email')->searchable(),
+                Tables\Columns\TextColumn::make('email_verified_at')->dateTime()->sortable(),
+                Tables\Columns\TextColumn::make('roles.name')->label('Rol')->sortable(),
+                Tables\Columns\TextColumn::make('institucion.nombre')->label('Institución')->sortable(),
+                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 //
@@ -89,9 +75,7 @@ class UserResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
-            //
-        ];
+        return [];
     }
 
     public static function getPages(): array
@@ -101,5 +85,13 @@ class UserResource extends Resource
             'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
+    }
+
+    // Hook para asignar el rol seleccionado
+    public static function afterSave($record, $data)
+    {
+        if (isset($data['role'])) {
+            $record->syncRoles([$data['role']]);
+        }
     }
 }
