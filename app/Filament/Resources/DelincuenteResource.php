@@ -81,7 +81,9 @@ class DelincuenteResource extends Resource
             Forms\Components\FileUpload::make('foto')
                 ->label('Foto')
                 ->image()
+                ->disk('public')
                 ->directory('delincuentes')
+                ->visibility('public') 
                 ->nullable(),
         ]);
     }
@@ -112,6 +114,8 @@ class DelincuenteResource extends Resource
                     ->sortable(),
                 Tables\Columns\ImageColumn::make('foto')
                     ->label('Foto')
+                    ->disk('public')
+                    ->visibility('public')
                     ->size(50),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Fecha de Creación')

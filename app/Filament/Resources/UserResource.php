@@ -11,6 +11,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
+use App\Rules\RutChileno;
 
 class UserResource extends Resource
 {
@@ -22,6 +23,40 @@ class UserResource extends Resource
     {
         return $form
             ->schema([
+                Forms\Components\TextInput::make('rut')
+                ->label('RUT')
+                ->unique(User::class, 'rut', fn ($record) => $record)
+                ->maxLength(12)
+                ->rules([new RutChileno()])
+                ->live()
+                ->afterStateUpdated(function (?string $state, Forms\Components\TextInput $component, $set, $livewire) {
+                    // Si el estado es null, no procesar
+                    if (!$state) {
+                        return;
+                    }
+                    
+                    $cleanRut = RutChileno::clean($state);
+
+                    if (strlen($cleanRut) > 0) {
+                        if (strlen($cleanRut) < 7) {
+                            $livewire->addError('rut', 'El RUT debe tener al menos 7 dígitos más el dígito verificador.');
+                            return;
+                        }
+
+                        $numero = substr($cleanRut, 0, -1);
+                        $dv = substr($cleanRut, -1);
+
+                        if (strlen($cleanRut) >= 8 && strlen($cleanRut) <= 9 && $dv === RutChileno::calcularDv($numero)) {
+                            $formattedRut = RutChileno::formatRut($cleanRut);
+                            $set('rut', $formattedRut);
+                            $livewire->resetValidation('rut');
+                        } else {
+                            $livewire->addError('rut', 'El RUT ingresado no es válido.');
+                        }
+                    } else {
+                        $livewire->resetValidation('rut');
+                    }
+                }),
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -52,6 +87,7 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('rut')->label('RUT')->searchable(),
                 Tables\Columns\TextColumn::make('name')->searchable(),
                 Tables\Columns\TextColumn::make('email')->searchable(),
                 Tables\Columns\TextColumn::make('email_verified_at')->dateTime()->sortable(),
