@@ -19,12 +19,32 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Select;
 use Illuminate\Support\Str;
 use Filament\Forms\Components\Hidden;
-
+use Illuminate\Database\Eloquent\Model; 
 
 class DelitoResource extends Resource
 {
     protected static ?string $model = Delito::class;
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-circle';
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'Jefe de zona', 'Operador']);
+    }
+    
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'Operador']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()->hasRole(['admin', 'Operador']);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole(['admin']);
+    }
 
     public static function form(Form $form): Form
     {

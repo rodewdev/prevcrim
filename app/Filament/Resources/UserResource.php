@@ -12,12 +12,32 @@ use Filament\Tables\Table;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use App\Rules\RutChileno;
-
+use Illuminate\Database\Eloquent\Model; 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+
+        public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'Jefe de zona']);
+    }
+    
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole(['admin', 'Jefe de zona']);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()->hasRole(['admin']);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole(['admin']);
+    }
 
     public static function form(Form $form): Form
     {
