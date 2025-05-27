@@ -20,24 +20,24 @@ class DelincuenteResource extends Resource
     protected static ?string $model = Delincuente::class;
     protected static ?string $navigationIcon = 'heroicon-o-user';
 
-    public static function canViewAny(): bool
-    {
-        return auth()->user()->hasRole(['admin', 'Operador']);
-    }
-    
-    public static function canCreate(): bool
-    {
-        return auth()->user()->hasRole(['admin', 'Operador']);
-    }
+public static function canViewAny(): bool
+{
+    return auth()->user()->hasRole(['Administrador General', 'Operador']);
+}
 
-    public static function canEdit(Model $record): bool
-    {
-        return auth()->user()->hasRole(['admin', 'Operador']);
-    }
+public static function canCreate(): bool
+{
+    return auth()->user()->hasRole(['Administrador General', 'Operador']);
+}
 
-    public static function canDelete(Model $record): bool
-    {
-        return auth()->user()->hasRole(['admin']);
+public static function canEdit(Model $record): bool
+{
+    return auth()->user()->hasRole(['Administrador General', 'Operador']);
+}
+
+public static function canDelete(Model $record): bool
+{
+    return auth()->user()->hasRole(['Administrador General']);
     }
     
     public static function form(Form $form): Form

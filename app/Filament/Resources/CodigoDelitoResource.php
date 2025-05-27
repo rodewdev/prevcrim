@@ -12,13 +12,40 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-
+use Illuminate\Database\Eloquent\Model;
 class CodigoDelitoResource extends Resource
 {
     protected static ?string $model = CodigoDelito::class;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
     protected static ?string $navigationLabel = 'Códigos de Delitos';
+public static function canViewAny(): bool
+{
+    // Admin tiene acceso total (nombre correcto del rol)
+    if (auth()->user()->hasRole('Administrador General')) {
+        return true;
+    }
+    
+    // Otros roles no tienen acceso
+    return false;
+}
 
+public static function canCreate(): bool
+{
+    // Solo admin (nombre correcto)
+    return auth()->user()->hasRole('Administrador General');
+}
+
+public static function canEdit(Model $record): bool
+{
+    // Solo admin (nombre correcto)
+    return auth()->user()->hasRole('Administrador General');
+}
+
+public static function canDelete(Model $record): bool
+{
+    // Solo admin (nombre correcto)
+    return auth()->user()->hasRole('Administrador General');
+}
     public static function form(Form $form): Form
     {
         return $form

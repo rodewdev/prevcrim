@@ -13,12 +13,36 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
+use Illuminate\Database\Eloquent\Model;
 class RolResource extends Resource
 {
     protected static ?string $model = Rol::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    public static function canViewAny(): bool
+{
+    // Solo el Administrador General puede acceder a los roles
+    return auth()->user()->hasRole('Administrador General');
+}
+
+public static function canCreate(): bool
+{
+    // Solo el Administrador General puede crear roles
+    return auth()->user()->hasRole('Administrador General');
+}
+
+public static function canEdit(Model $record): bool
+{
+    // Solo el Administrador General puede editar roles
+    return auth()->user()->hasRole('Administrador General');
+}
+
+public static function canDelete(Model $record): bool
+{
+    // Solo el Administrador General puede eliminar roles
+    return auth()->user()->hasRole('Administrador General');
+} 
     public static function form(Form $form): Form
     {
         return $form

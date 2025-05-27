@@ -28,12 +28,17 @@ class SectorResource extends Resource
                     ->maxLength(255),
                 /*Forms\Components\TextInput::make('institucion_id')
                     ->required()
-                    ->numeric(), 
-                Forms\Components\Select::make('comuna_id')
-                    ->label('Comuna')
-                    ->relationship('comuna', 'nombre')
-                    ->searchable()
-                    ->required(),
+                    ->numeric(), */
+            Forms\Components\Select::make('comuna_id')
+                ->label('Comuna')
+                ->relationship(
+                    name: 'comuna', 
+                    titleAttribute: 'nombre',
+                    modifyQueryUsing: fn (Builder $query) => $query
+                )
+                ->searchable()
+                ->preload() // Precargar opciones
+                ->required(),
             ]);
     }
 

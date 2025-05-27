@@ -21,22 +21,22 @@ class UserResource extends Resource
 
         public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole(['admin', 'Jefe de zona']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
     }
     
     public static function canCreate(): bool
     {
-        return auth()->user()->hasRole(['admin', 'Jefe de zona']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
     }
 
     public static function canEdit(Model $record): bool
     {
-        return auth()->user()->hasRole(['admin']);
+        return auth()->user()->hasRole(['Administrador General']);
     }
 
     public static function canDelete(Model $record): bool
     {
-        return auth()->user()->hasRole(['admin']);
+        return auth()->user()->hasRole(['Administrador General']);
     }
 
     public static function form(Form $form): Form

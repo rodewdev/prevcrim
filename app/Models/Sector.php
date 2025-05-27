@@ -15,9 +15,9 @@ class Sector extends Model
    /* public function institucion()
     {
         return $this->belongsTo(Institucion::class, 'institucion_id');
-    }
+    }*/
     public function comuna()
     {
         return $this->belongsTo(Comuna::class, 'comuna_id');
-    }*/
+    }
 }

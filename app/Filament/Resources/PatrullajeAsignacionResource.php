@@ -23,8 +23,10 @@ class PatrullajeAsignacionResource extends Resource
 
       public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole(['admin', 'Jefe de zona']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
+
     }
+    
     
     public static function form(Form $form): Form
     {
