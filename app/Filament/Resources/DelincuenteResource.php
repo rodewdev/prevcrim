@@ -20,24 +20,24 @@ class DelincuenteResource extends Resource
     protected static ?string $model = Delincuente::class;
     protected static ?string $navigationIcon = 'heroicon-o-user';
 
-public static function canViewAny(): bool
-{
-    return auth()->user()->hasRole(['Administrador General', 'Operador']);
-}
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+    }
 
-public static function canCreate(): bool
-{
-    return auth()->user()->hasRole(['Administrador General', 'Operador']);
-}
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+    }
 
-public static function canEdit(Model $record): bool
-{
-    return auth()->user()->hasRole(['Administrador General', 'Operador']);
-}
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+    }
 
-public static function canDelete(Model $record): bool
-{
-    return auth()->user()->hasRole(['Administrador General']);
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()->hasRole(['Administrador General']);
     }
     
     public static function form(Form $form): Form
@@ -82,6 +82,14 @@ public static function canDelete(Model $record): bool
                 ->validationMessages([
                 'regex' => 'El nombre solo puede contener letras y espacios.',
             ]),
+            Forms\Components\TextInput::make('apellidos')
+                ->label('Apellidos')
+                ->required()
+                ->maxLength(255)
+                ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->validationMessages([
+                    'regex' => 'Los apellidos solo pueden contener letras y espacios.',
+                ]),
             Forms\Components\TextInput::make('alias')
                 ->label('Alias')
                 ->maxLength(100)
@@ -91,7 +99,40 @@ public static function canDelete(Model $record): bool
             ]),
             Forms\Components\TextInput::make('domicilio')
                 ->label('Domicilio')
+                ->required()
+                ->maxLength(255)
+                ->live()
+                ->readonly(),
+            Forms\Components\ViewField::make('domicilio_mapa')
+                ->view('filament.custom.address-map-field', [
+                    'id' => 'domicilio',
+                    'label' => 'Domicilio (mapa)',
+                    'addressField' => 'domicilio',
+                ]),
+            Forms\Components\TextInput::make('ultimo_lugar_visto')
+                ->label('Último lugar visto')
+                ->required()
+                ->maxLength(255)
+                ->live()
+                ->readonly(),
+            Forms\Components\ViewField::make('ultimo_lugar_visto_mapa')
+                ->view('filament.custom.address-map-field', [
+                    'id' => 'ultimolugar',
+                    'label' => 'Último lugar visto (mapa)',
+                    'addressField' => 'ultimo_lugar_visto',
+                ]),
+            Forms\Components\TextInput::make('telefono_fijo')
+                ->label('Teléfono fijo')
+                ->maxLength(20),
+            Forms\Components\TextInput::make('celular')
+                ->label('Celular')
+                ->maxLength(20),
+            Forms\Components\TextInput::make('email')
+                ->label('Email')
+                ->email()
                 ->maxLength(255),
+            Forms\Components\DatePicker::make('fecha_nacimiento')
+                ->label('Fecha de nacimiento'),
             Forms\Components\Select::make('estado')
                 ->label('Estado')
                 ->options([
@@ -107,6 +148,33 @@ public static function canDelete(Model $record): bool
                 ->directory('delincuentes')
                 ->visibility('public') 
                 ->nullable(),
+            Forms\Components\Repeater::make('familiares')
+                ->label('Familiares')
+                ->relationship('familiares')
+                ->schema([
+                    Forms\Components\Select::make('familiar_id')
+                        ->label('Familiar')
+                        ->options(function () {
+                            return \App\Models\Delincuente::all()->mapWithKeys(function($d) {
+                                return [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut];
+                            });
+                        })
+                        ->searchable()
+                        ->getSearchResultsUsing(fn (string $search) => \App\Models\Delincuente::query()
+                            ->where('rut', 'like', "%$search%")
+                            ->orWhere('nombre', 'like', "%$search%")
+                            ->orWhere('apellidos', 'like', "%$search%")
+                            ->limit(20)
+                            ->get()
+                            ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut]))
+                        ->required(),
+                    Forms\Components\TextInput::make('parentesco')
+                        ->label('Parentesco')
+                        ->maxLength(100)
+                        ->required(),
+                ])
+                ->columns(2)
+                ->createItemButtonLabel('Agregar familiar'),
         ]);
     }
 
@@ -121,11 +189,84 @@ public static function canDelete(Model $record): bool
                     ->label('Nombre')
                     ->sortable()
                     ->searchable(),
+                Tables\Columns\TextColumn::make('apellidos')
+                    ->label('Apellidos')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('alias')
                     ->label('Alias'),
                 Tables\Columns\TextColumn::make('domicilio')
                     ->label('Domicilio')
-                    ->limit(50),
+                    ->limit(30)
+                    ->action(
+                        Tables\Actions\Action::make('verDomicilioMapa')
+                            ->label('Ver en mapa')
+                            ->icon('heroicon-o-map')
+                            ->modalHeading('Domicilio')
+                            ->modalContent(fn($record) =>
+                                $record->domicilio
+                                    ? view('filament.custom.address-map-field', [
+                                        'id' => 'domicilio-' . $record->id,
+                                        'label' => $record->domicilio,
+                                        'addressField' => 'domicilio',
+                                        'address' => $record->domicilio,
+                                    ])
+                                    : 'No hay ubicación registrada'
+                            )
+                            ->visible(fn($record) => $record->domicilio),
+                    ),
+                Tables\Columns\TextColumn::make('ultimo_lugar_visto')
+                    ->label('Último lugar visto')
+                    ->limit(30)
+                    ->action(
+                        Tables\Actions\Action::make('verUltimoLugarMapa')
+                            ->label('Ver en mapa')
+                            ->icon('heroicon-o-map')
+                            ->modalHeading('Último lugar visto')
+                            ->modalContent(fn($record) =>
+                                $record->ultimo_lugar_visto
+                                    ? view('filament.custom.address-map-field', [
+                                        'id' => 'ultimolugar-' . $record->id,
+                                        'label' => $record->ultimo_lugar_visto,
+                                        'addressField' => 'ultimo_lugar_visto',
+                                        'address' => $record->ultimo_lugar_visto,
+                                    ])
+                                    : 'No hay ubicación registrada'
+                            )
+                            ->visible(fn($record) => $record->ultimo_lugar_visto),
+                    ),
+                Tables\Columns\TextColumn::make('telefono_fijo')
+                    ->label('Teléfono fijo'),
+                Tables\Columns\TextColumn::make('celular')
+                    ->label('Celular'),
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email'),
+                Tables\Columns\TextColumn::make('fecha_nacimiento')
+                    ->label('Fecha de nacimiento')
+                    ->date(),
+                Tables\Columns\TextColumn::make('familiares')
+                    ->label('Familiares')
+                    ->formatStateUsing(fn($record) =>
+                        $record->familiares->isNotEmpty()
+                            ? $record->familiares->count() . ' familiar' . ($record->familiares->count() > 1 ? 'es' : '')
+                            : 'No registra')
+                    ->toggleable()
+                    ->wrap()
+                    ->limit(30)
+                    ->extraAttributes(['style' => 'max-width:120px; white-space:normal; word-break:break-word;'])
+                    ->action(
+                        Tables\Actions\Action::make('verFamiliares')
+                            ->label('Ver familiares')
+                            ->icon('heroicon-o-eye')
+                            ->modalHeading('Familiares del delincuente')
+                            ->modalSubheading(fn($record) => $record->nombre . ' ' . $record->apellidos . ' (' . $record->rut . ')')
+                            ->modalContent(fn($record) =>
+                                $record->familiares->isNotEmpty()
+                                    ? view('filament.custom.familiares-list', ['familiares' => $record->familiares])
+                                    : 'No registra'
+                            )
+                            ->visible(fn($record) => $record->familiares->isNotEmpty())
+                    ),
                 Tables\Columns\BadgeColumn::make('estado')
                     ->label('Estado')
                     ->colors([
