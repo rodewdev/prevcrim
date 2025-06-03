@@ -169,60 +169,122 @@ Tables\Columns\TextColumn::make('institucion.nombre')
     ->sortable(),
         ])
             ->filters([
-                SelectFilter::make('codigo_delito_id')
-                    ->label('Código de Delito')
-                    ->relationship('codigoDelito', 'codigo')
-                    ->searchable()
-                    ->preload(),
+            // Filtro de delincuentes ordenados alfabéticamente y selección múltiple (usando Filter::make)
+            Filter::make('delincuente')
+                ->label('Delincuente (alfabético)')
+                ->form([
+                    Forms\Components\Select::make('delincuente_id')
+                        ->label('Delincuente')
+                        ->options(\App\Models\Delincuente::orderBy('nombre')->pluck('nombre', 'id'))
+                        ->searchable()
+                        ->preload()
+                        ->multiple(),
+                ])
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['delincuente_id'])) {
+                        $ids = is_array($data['delincuente_id']) ? $data['delincuente_id'] : [$data['delincuente_id']];
+                        $query->whereHas('delincuentes', function ($q) use ($ids) {
+                            $q->whereIn('delincuentes.id', $ids);
+                        });
+                    }
+                }),
 
-                SelectFilter::make('codigo_delito_descripcion')
-                    ->label('Descripción del Delito')
-                    ->relationship('codigoDelito', 'descripcion')
-                    ->searchable()
-                    ->preload(),
+            // Filtro por delito cometido (agrupado por código y descripción)
+            SelectFilter::make('codigo_delito_id')
+                ->label('Delito cometido')
+                ->options(function () {
+                    return CodigoDelito::orderBy('codigo')->get()->mapWithKeys(function ($cd) {
+                        return [$cd->id => $cd->codigo . ' - ' . $cd->descripcion];
+                    });
+                })
+                ->searchable()
+                ->preload(),
 
-                SelectFilter::make('region_id')
-                    ->label('Región')
-                    ->relationship('region', 'nombre')
-                    ->searchable()
-                    ->preload(),
+            // Filtro por comuna de residencia del delincuente (usando Filter::make)
+            Filter::make('delincuente_comuna')
+                ->label('Comuna de residencia del delincuente')
+                ->form([
+                    Forms\Components\Select::make('comuna_id')
+                        ->label('Comuna de residencia')
+                        ->options(\App\Models\Comuna::orderBy('nombre')->pluck('nombre', 'id'))
+                        ->searchable()
+                        ->preload(),
+                ])
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['comuna_id'])) {
+                        $query->whereHas('delincuentes', function ($q) use ($data) {
+                            $q->where('comuna_id', $data['comuna_id']);
+                        });
+                    }
+                }),
 
-                SelectFilter::make('comuna_id')
-                    ->label('Comuna')
-                    ->relationship('comuna', 'nombre')
-                    ->searchable()
-                    ->preload(),
+            // Filtro por comuna donde se vio por última vez al delincuente (usando Filter::make)
+            Filter::make('ultimo_lugar_visto')
+                ->label('Comuna donde se vio por última vez al delincuente')
+                ->form([
+                    Forms\Components\Select::make('comuna_id')
+                        ->label('Comuna último avistamiento')
+                        ->options(\App\Models\Comuna::orderBy('nombre')->pluck('nombre', 'id'))
+                        ->searchable()
+                        ->preload(),
+                ])
+                ->query(function (Builder $query, array $data) {
+                    if (!empty($data['comuna_id'])) {
+                        $query->whereHas('delincuentes', function ($q) use ($data) {
+                            $q->where('ultimo_lugar_visto', 'like', "%{$data['comuna_id']}%");
+                        });
+                    }
+                }),
 
-                SelectFilter::make('sector_id')
-                    ->label('Sector')
-                    ->relationship('sector', 'nombre')
-                    ->searchable()
-                    ->preload(),
+            // Filtro por parentesco (delincuentes con familiares)
+            Filter::make('tiene_familiares')
+                ->label('Con familiares registrados')
+                ->query(fn (Builder $query, $value) => $value ? $query->whereHas('delincuentes.familiares') : $query),
 
-                SelectFilter::make('delincuente_id')
-                    ->label('Delincuente')
-                    ->relationship('delincuentes', 'nombre')
-                    ->searchable()
-                    ->preload()
-                    ->multiple(),
+            // Filtro por comuna del delito
+            SelectFilter::make('comuna_id')
+                ->label('Comuna del delito')
+                ->relationship('comuna', 'nombre')
+                ->searchable()
+                ->preload(),
 
-                Filter::make('fecha_comision')
-                    ->form([
-                        Forms\Components\DatePicker::make('fecha_desde'),
-                        Forms\Components\DatePicker::make('fecha_hasta'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when(
-                                $data['fecha_desde'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_comision', '>=', $date),
-                            )
-                            ->when(
-                                $data['fecha_hasta'],
-                                fn (Builder $query, $date): Builder => $query->whereDate('fecha_comision', '<=', $date),
-                            );
-                    })
-            ])
+            // Filtro por sector
+            SelectFilter::make('sector_id')
+                ->label('Sector')
+                ->relationship('sector', 'nombre')
+                ->searchable()
+                ->preload(),
+
+            // Filtro por rango de fechas
+            Filter::make('fecha')
+                ->form([
+                    Forms\Components\DatePicker::make('desde')->label('Desde'),
+                    Forms\Components\DatePicker::make('hasta')->label('Hasta'),
+                ])
+                ->query(function (Builder $query, array $data): Builder {
+                    return $query
+                        ->when($data['desde'], fn (Builder $q, $date) => $q->whereDate('fecha', '>=', $date))
+                        ->when($data['hasta'], fn (Builder $q, $date) => $q->whereDate('fecha', '<=', $date));
+                }),
+
+            // Ranking de comunas con más delitos
+            Filter::make('ranking_comunas')
+                ->label('Ranking comunas con más delitos')
+                ->query(function (Builder $query) {
+                    $query->selectRaw('comuna_id, count(*) as total')
+                        ->groupBy('comuna_id')
+                        ->orderByDesc('total');
+                }),
+
+            // Ranking de sectores con más delitos
+            Filter::make('ranking_sectores')
+                ->label('Ranking sectores con más delitos')
+                ->query(function (Builder $query) {
+                    $query->selectRaw('sector_id, count(*) as total')
+                        ->groupBy('sector_id')
+                        ->orderByDesc('total');
+                }),
+        ])
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])
