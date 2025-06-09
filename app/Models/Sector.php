@@ -20,4 +20,9 @@ class Sector extends Model
     {
         return $this->belongsTo(Comuna::class, 'comuna_id');
     }
+
+    public function delitos()
+    {
+        return $this->hasMany(Delito::class, 'sector_id');
+    }
 }

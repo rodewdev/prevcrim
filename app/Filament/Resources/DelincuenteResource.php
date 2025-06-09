@@ -4,6 +4,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DelincuenteResource\Pages;
 use App\Models\Delincuente;
+use App\Models\Comuna;
+use App\Models\Region;
+use App\Models\Sector;
+use App\Models\CodigoDelito;
 use App\Rules\RutChileno;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -14,6 +18,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\DatePicker;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class DelincuenteResource extends Resource
 {
@@ -78,31 +83,43 @@ class DelincuenteResource extends Resource
                 ->label('Nombre')
                 ->required()
                 ->maxLength(255)
-                 ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/')
                 ->validationMessages([
-                'regex' => 'El nombre solo puede contener letras y espacios.',
-            ]),
+                    'regex' => 'El nombre solo puede contener letras, tildes y espacios.',
+                ]),
             Forms\Components\TextInput::make('apellidos')
                 ->label('Apellidos')
                 ->required()
                 ->maxLength(255)
-                ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/')
                 ->validationMessages([
-                    'regex' => 'Los apellidos solo pueden contener letras y espacios.',
+                    'regex' => 'Los apellidos solo pueden contener letras, tildes y espacios.',
                 ]),
             Forms\Components\TextInput::make('alias')
                 ->label('Alias')
                 ->maxLength(100)
-                ->rule('regex:/^[a-zA-Z\s]+$/')
+                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]*$/')
                 ->validationMessages([
-                'regex' => 'El alias solo puede contener letras y espacios.',
-            ]),
+                    'regex' => 'El alias solo puede contener letras, tildes y espacios.',
+                ]),
             Forms\Components\TextInput::make('domicilio')
                 ->label('Domicilio')
                 ->required()
                 ->maxLength(255)
+                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
+                ->validationMessages([
+                    'regex' => 'El domicilio solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
+                ])
                 ->live()
                 ->readonly(),
+            Forms\Components\Select::make('comuna_id')
+                ->label('Comuna de Residencia')
+                ->relationship('comuna', 'nombre')
+                ->searchable()
+                ->preload()
+                ->required()
+                ->reactive()
+                ->afterStateUpdated(fn (callable $set) => $set('region_display', null)),
             Forms\Components\ViewField::make('domicilio_mapa')
                 ->view('filament.custom.address-map-field', [
                     'id' => 'domicilio',
@@ -113,6 +130,10 @@ class DelincuenteResource extends Resource
                 ->label('Último lugar visto')
                 ->required()
                 ->maxLength(255)
+                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
+                ->validationMessages([
+                    'regex' => 'El último lugar visto solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
+                ])
                 ->live()
                 ->readonly(),
             Forms\Components\ViewField::make('ultimo_lugar_visto_mapa')
@@ -123,10 +144,18 @@ class DelincuenteResource extends Resource
                 ]),
             Forms\Components\TextInput::make('telefono_fijo')
                 ->label('Teléfono fijo')
-                ->maxLength(20),
+                ->maxLength(20)
+                ->rule('regex:/^[0-9\+\-\(\)\s]*$/')
+                ->validationMessages([
+                    'regex' => 'El teléfono solo puede contener números, espacios y caracteres (+, -, (, )).',
+                ]),
             Forms\Components\TextInput::make('celular')
                 ->label('Celular')
-                ->maxLength(20),
+                ->maxLength(20)
+                ->rule('regex:/^[0-9\+\-\(\)\s]*$/')
+                ->validationMessages([
+                    'regex' => 'El celular solo puede contener números, espacios y caracteres (+, -, (, )).',
+                ]),
             Forms\Components\TextInput::make('email')
                 ->label('Email')
                 ->email()
@@ -334,6 +363,10 @@ class DelincuenteResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('alias')
                     ->label('Alias'),
+                Tables\Columns\TextColumn::make('comuna.nombre')
+                    ->label('Comuna')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('domicilio')
                     ->label('Domicilio')
                     ->limit(30)
@@ -426,40 +459,129 @@ class DelincuenteResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('estado')
-                    ->options([
-                        'P' => 'Preso',
-                        'L' => 'Libre',
-                        'A' => 'Orden de Arresto',
-                    ]),
+                    ->label('Estado')
+                    ->options(function () {
+                        // Solo mostrar estados que están en uso
+                        $estados = Delincuente::whereNotNull('estado')
+                            ->distinct()
+                            ->pluck('estado')
+                            ->filter()
+                            ->mapWithKeys(function ($estado) {
+                                $labels = [
+                                    'P' => 'Preso',
+                                    'L' => 'Libre', 
+                                    'A' => 'Orden de Arresto'
+                                ];
+                                return [$estado => $labels[$estado] ?? $estado];
+                            });
+                        return $estados->toArray();
+                    }),
+                SelectFilter::make('comuna_id')
+                    ->label('Comuna de Residencia')
+                    ->options(function () {
+                        // Solo mostrar comunas que tienen delincuentes
+                        return Comuna::whereHas('delincuentes')
+                            ->orderBy('nombre')
+                            ->pluck('nombre', 'id')
+                            ->toArray();
+                    }),
                 SelectFilter::make('codigo_delito')
-                    ->relationship('delitos.codigoDelito', 'codigo')
-                    ->label('Código de Delito'),
+                    ->label('Código de Delito')
+                    ->options(function () {
+                        // Solo mostrar códigos de delito que tienen delincuentes asociados
+                        return CodigoDelito::whereHas('delitos', function ($query) {
+                            $query->whereHas('delincuentes');
+                        })
+                        ->orderBy('codigo')
+                        ->get()
+                        ->mapWithKeys(fn($codigo) => [$codigo->id => $codigo->codigo . ' - ' . $codigo->descripcion])
+                        ->toArray();
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn (Builder $query, $value): Builder => $query->whereHas('delitos.codigoDelito', function ($q) use ($value) {
+                                $q->where('id', $value);
+                            })
+                        );
+                    }),
                 SelectFilter::make('region')
-                    ->relationship('delitos.region', 'nombre')
-                    ->label('Región'),
+                    ->label('Región')
+                    ->options(function () {
+                        // Solo mostrar regiones que tienen delincuentes (a través de delitos)
+                        return Region::whereHas('delitos', function ($query) {
+                            $query->whereHas('delincuentes');
+                        })
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn (Builder $query, $value): Builder => $query->whereHas('delitos.region', function ($q) use ($value) {
+                                $q->where('id', $value);
+                            })
+                        );
+                    }),
                 SelectFilter::make('comuna')
-                    ->relationship('delitos.comuna', 'nombre')
-                    ->label('Comuna'),
+                    ->label('Comuna (Delitos)')
+                    ->options(function () {
+                        // Solo mostrar comunas que tienen delitos con delincuentes
+                        return Comuna::whereHas('delitos', function ($query) {
+                            $query->whereHas('delincuentes');
+                        })
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn (Builder $query, $value): Builder => $query->whereHas('delitos.comuna', function ($q) use ($value) {
+                                $q->where('id', $value);
+                            })
+                        );
+                    }),
                 SelectFilter::make('sector')
-                    ->relationship('delitos.sector', 'nombre')
-                    ->label('Sector'),
+                    ->label('Sector')
+                    ->options(function () {
+                        // Solo mostrar sectores que tienen delitos con delincuentes
+                        return Sector::whereHas('delitos', function ($query) {
+                            $query->whereHas('delincuentes');
+                        })
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                    })
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['value'],
+                            fn (Builder $query, $value): Builder => $query->whereHas('delitos.sector', function ($q) use ($value) {
+                                $q->where('id', $value);
+                            })
+                        );
+                    }),
                 Tables\Filters\Filter::make('fecha_comision')
+                    ->label('Fecha de Comisión de Delitos')
                     ->form([
-                        DatePicker::make('fecha_desde'),
-                        DatePicker::make('fecha_hasta'),
+                        DatePicker::make('fecha_desde')
+                            ->label('Desde'),
+                        DatePicker::make('fecha_hasta')
+                            ->label('Hasta'),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['fecha_desde'],
                                 fn (Builder $query, $date): Builder => $query->whereHas('delitos', function ($query) use ($date) {
-                                    $query->whereDate('fecha_comision', '>=', $date);
+                                    $query->whereDate('fecha', '>=', $date);
                                 })
                             )
                             ->when(
                                 $data['fecha_hasta'],
                                 fn (Builder $query, $date): Builder => $query->whereHas('delitos', function ($query) use ($date) {
-                                    $query->whereDate('fecha_comision', '<=', $date);
+                                    $query->whereDate('fecha', '<=', $date);
                                 })
                             );
                     })

@@ -13,8 +13,13 @@ class Delincuente extends Model
 
     protected $fillable = [
         'rut', 'nombre', 'apellidos', 'alias', 'domicilio', 'estado', 'foto',
-        'ultimo_lugar_visto', 'telefono_fijo', 'celular', 'email', 'fecha_nacimiento'
+        'ultimo_lugar_visto', 'telefono_fijo', 'celular', 'email', 'fecha_nacimiento', 'comuna_id'
     ];
+
+    public function comuna()
+    {
+        return $this->belongsTo(Comuna::class);
+    }
 
     public function delitos()
     {
