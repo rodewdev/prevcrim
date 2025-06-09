@@ -14,3 +14,9 @@ Route::get('/admin/resources/delincuentes/{record}/delitos', function ($record) 
         'delincuente' => $delincuente
     ]);
 })->name('filament.admin.resources.delincuentes.delitos');
+
+// Ruta de prueba para PDF (solo en desarrollo)
+if (app()->environment('local')) {
+    require __DIR__ . '/test-pdf.php';
+    require __DIR__ . '/test-simple.php';
+}
