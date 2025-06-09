@@ -47,7 +47,7 @@ class DelincuenteResource extends Resource
                 ->label('RUT')
                 ->required()
                 ->unique(Delincuente::class, 'rut', ignoreRecord: true)
-                ->disabled(fn ($context) => $context === 'edit') // Solo deshabilitado en edición
+                ->disabled(fn ($context) => $context === 'edit')
                 ->maxLength(12)
                 ->rules([new RutChileno()])
                 ->live()
@@ -151,40 +151,22 @@ class DelincuenteResource extends Resource
             Forms\Components\Repeater::make('familiares')
                 ->label('Familiares')
                 ->relationship('familiares')
-                ->saveRelationshipsUsing(function ($state, $record) {
-                    // Elimina relaciones actuales
-                    $record->familiares()->detach();
-                    // Vuelve a asociar solo los IDs seleccionados y sus parentescos
-                    foreach ($state as $item) {
-                        if (!empty($item['familiar_id']) && !empty($item['parentesco'])) {
-                            $record->familiares()->attach($item['familiar_id'], ['parentesco' => $item['parentesco']]);
-                        }
-                    }
-                })
                 ->schema([
                     Forms\Components\Select::make('familiar_id')
                         ->label('Familiar')
-                        ->options(function ($get, $livewire) {
-                            $delincuenteId = $livewire->record->id ?? null;
-                            return \App\Models\Delincuente::query()
-                                ->when($delincuenteId, fn($q) => $q->where('id', '!=', $delincuenteId))
-                                ->get()
-                                ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut]);
+                        ->options(function () {
+                            return \App\Models\Delincuente::all()->mapWithKeys(function($d) {
+                                return [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut];
+                            });
                         })
                         ->searchable()
-                        ->getSearchResultsUsing(function (string $search, $get, $livewire) {
-                            $delincuenteId = $livewire->record->id ?? null;
-                            return \App\Models\Delincuente::query()
-                                ->where(function($q) use ($search) {
-                                    $q->where('rut', 'like', "%$search%")
-                                      ->orWhere('nombre', 'like', "%$search%")
-                                      ->orWhere('apellidos', 'like', "%$search%") ;
-                                })
-                                ->when($delincuenteId, fn($q) => $q->where('id', '!=', $delincuenteId))
-                                ->limit(20)
-                                ->get()
-                                ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut]);
-                        })
+                        ->getSearchResultsUsing(fn (string $search) => \App\Models\Delincuente::query()
+                            ->where('rut', 'like', "%$search%")
+                            ->orWhere('nombre', 'like', "%$search%")
+                            ->orWhere('apellidos', 'like', "%$search%")
+                            ->limit(20)
+                            ->get()
+                            ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut]))
                         ->required(),
                     Forms\Components\Select::make('parentesco')
                         ->label('Parentesco')
@@ -279,20 +261,11 @@ class DelincuenteResource extends Resource
                                 'primo tercero' => 'primo tercero',
                                 'prima tercera' => 'prima tercera',
                             ];
-                            // Eliminar cualquier relación inversa previa en el estado del repeater
-                            $delincuenteId = $livewire->record->id ?? null;
-                            $nuevo = collect($repeaterState)
-                                ->reject(function($item) use ($delincuenteId, $inversos, $parentesco) {
-                                    return isset($item['familiar_id'], $item['parentesco']) &&
-                                        $item['familiar_id'] == $delincuenteId &&
-                                        strtolower($item['parentesco']) == $inversos[$parentesco];
-                                })
-                                ->values()
-                                ->toArray();
-                            // Agregar la relación inversa solo si no existe
-                            if ($familiarId && isset($inversos[$parentesco])) {
+                            if (isset($inversos[$parentesco]) && $familiarId) {
+                                $delincuenteId = $livewire->record->id ?? null;
+                                if (!$delincuenteId) return;
                                 $yaExiste = false;
-                                foreach ($nuevo as $item) {
+                                foreach ($repeaterState as $item) {
                                     if (
                                         isset($item['familiar_id'], $item['parentesco']) &&
                                         $item['familiar_id'] == $delincuenteId &&
@@ -303,13 +276,14 @@ class DelincuenteResource extends Resource
                                     }
                                 }
                                 if (!$yaExiste) {
+                                    $nuevo = $repeaterState;
                                     $nuevo[] = [
                                         'familiar_id' => $delincuenteId,
                                         'parentesco' => $inversos[$parentesco],
                                     ];
+                                    $component->getContainer()->getParentComponent()->setState($nuevo);
                                 }
                             }
-                            $set('familiares', $nuevo);
                         }),
                 ])
                 ->columns(2)
@@ -490,40 +464,60 @@ class DelincuenteResource extends Resource
 
     public static function afterSave(Form $form, Model $record): void
     {
-        $inversos = [
-            'padre' => 'hijo', 'madre' => 'hijo', 'hijo' => 'padre', 'hija' => 'padre',
-            'abuelo' => 'nieto', 'abuela' => 'nieto', 'bisabuelo' => 'bisnieto', 'bisabuela' => 'bisnieto',
-            'tatarabuelo' => 'tataranieto', 'tatarabuela' => 'tataranieto', 'nieto' => 'abuelo', 'nieta' => 'abuelo',
-            'bisnieto' => 'bisabuelo', 'bisnieta' => 'bisabuelo', 'tataranieto' => 'tatarabuelo', 'tataranieta' => 'tatarabuelo',
-            'hermano' => 'hermano', 'hermana' => 'hermana', 'medio hermano' => 'medio hermano', 'media hermana' => 'media hermana',
-            'primo' => 'primo', 'prima' => 'prima', 'tio' => 'sobrino', 'tia' => 'sobrino', 'sobrino' => 'tio', 'sobrina' => 'tio',
-            'esposo' => 'esposa', 'esposa' => 'esposo', 'conyuge' => 'conyuge', 'suegro' => 'yerno', 'suegra' => 'yerno',
-            'yerno' => 'suegro', 'nuera' => 'suegro', 'cuñado' => 'cuñado', 'cuñada' => 'cuñada',
-            'tio abuelo' => 'sobrino nieto', 'tia abuela' => 'sobrino nieto', 'primo segundo' => 'primo segundo',
-            'prima segunda' => 'prima segunda', 'primo tercero' => 'primo tercero', 'prima tercera' => 'prima tercera',
-        ];
-
-        // 1. Eliminar TODAS las relaciones inversas de este delincuente en otros delincuentes
-        foreach ($inversos as $par => $inv) {
-            // Buscar delincuentes que tengan a este como familiar con ese parentesco inverso
-            $relaciones = \App\Models\Delincuente::whereHas('familiares', function($q) use ($record, $inv) {
-                $q->where('familiar_id', $record->id)->where('parentesco', $inv);
-            })->get();
-            foreach ($relaciones as $del) {
-                $del->familiares()->detach($record->id);
-            }
-        }
-
-        // 2. Agregar solo las relaciones inversas correctas según el formulario actual
+        // Obtener familiares guardados
         $familiares = $record->familiares()->withPivot('parentesco')->get();
+        $inversos = [
+            'padre' => 'hijo',
+            'madre' => 'hijo',
+            'hijo' => 'padre',
+            'hija' => 'padre',
+            'abuelo' => 'nieto',
+            'abuela' => 'nieto',
+            'bisabuelo' => 'bisnieto',
+            'bisabuela' => 'bisnieto',
+            'tatarabuelo' => 'tataranieto',
+            'tatarabuela' => 'tataranieto',
+            'nieto' => 'abuelo',
+            'nieta' => 'abuelo',
+            'bisnieto' => 'bisabuelo',
+            'bisnieta' => 'bisabuelo',
+            'tataranieto' => 'tatarabuelo',
+            'tataranieta' => 'tatarabuelo',
+            'hermano' => 'hermano',
+            'hermana' => 'hermana',
+            'medio hermano' => 'medio hermano',
+            'media hermana' => 'media hermana',
+            'primo' => 'primo',
+            'prima' => 'prima',
+            'tio' => 'sobrino',
+            'tia' => 'sobrino',
+            'sobrino' => 'tio',
+            'sobrina' => 'tio',
+            'esposo' => 'esposa',
+            'esposa' => 'esposo',
+            'conyuge' => 'conyuge',
+            'suegro' => 'yerno',
+            'suegra' => 'yerno',
+            'yerno' => 'suegro',
+            'nuera' => 'suegro',
+            'cuñado' => 'cuñado',
+            'cuñada' => 'cuñada',
+            'tio abuelo' => 'sobrino nieto',
+            'tia abuela' => 'sobrino nieto',
+            'primo segundo' => 'primo segundo',
+            'prima segunda' => 'prima segunda',
+            'primo tercero' => 'primo tercero',
+            'prima tercera' => 'prima tercera',
+        ];
         foreach ($familiares as $familiar) {
             $parentesco = strtolower($familiar->pivot->parentesco);
             if (isset($inversos[$parentesco])) {
                 $inverso = $inversos[$parentesco];
-                // Eliminar cualquier relación inversa previa (por seguridad)
-                $familiar->familiares()->detach($record->id);
-                // Agregar la relación inversa correcta
-                $familiar->familiares()->attach($record->id, ['parentesco' => $inverso]);
+                // Verificar si ya existe la relación inversa
+                $yaExiste = $familiar->familiares()->where('familiar_id', $record->id)->wherePivot('parentesco', $inverso)->exists();
+                if (!$yaExiste) {
+                    $familiar->familiares()->attach($record->id, ['parentesco' => $inverso]);
+                }
             }
         }
     }
