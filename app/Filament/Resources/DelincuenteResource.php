@@ -55,6 +55,10 @@ class DelincuenteResource extends Resource
                 ->disabled(fn ($context) => $context === 'edit') // Solo deshabilitado en edición
                 ->maxLength(12)
                 ->rules([new RutChileno()])
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                    'unique' => 'Este RUT ya está registrado',
+                ])
                 ->live()
                 ->afterStateUpdated(function (string $state, Forms\Components\TextInput $component, $set, $livewire) {
                     $cleanRut = RutChileno::clean($state);
@@ -85,6 +89,7 @@ class DelincuenteResource extends Resource
                 ->maxLength(255)
                 ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/')
                 ->validationMessages([
+                    'required' => 'Campo requerido',
                     'regex' => 'El nombre solo puede contener letras, tildes y espacios.',
                 ]),
             Forms\Components\TextInput::make('apellidos')
@@ -93,6 +98,7 @@ class DelincuenteResource extends Resource
                 ->maxLength(255)
                 ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/')
                 ->validationMessages([
+                    'required' => 'Campo requerido',
                     'regex' => 'Los apellidos solo pueden contener letras, tildes y espacios.',
                 ]),
             Forms\Components\TextInput::make('alias')
@@ -108,6 +114,7 @@ class DelincuenteResource extends Resource
                 ->maxLength(255)
                 ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
                 ->validationMessages([
+                    'required' => 'Campo requerido',
                     'regex' => 'El domicilio solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
                 ])
                 ->live()
@@ -118,6 +125,9 @@ class DelincuenteResource extends Resource
                 ->searchable()
                 ->preload()
                 ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
                 ->reactive()
                 ->afterStateUpdated(fn (callable $set) => $set('region_display', null)),
             Forms\Components\ViewField::make('domicilio_mapa')
@@ -132,6 +142,7 @@ class DelincuenteResource extends Resource
                 ->maxLength(255)
                 ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
                 ->validationMessages([
+                    'required' => 'Campo requerido',
                     'regex' => 'El último lugar visto solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
                 ])
                 ->live()
@@ -169,7 +180,10 @@ class DelincuenteResource extends Resource
                     'L' => 'Libre',
                     'A' => 'Orden de Arresto',
                 ])
-                ->required(),
+                ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ]),
             Forms\Components\FileUpload::make('foto')
                 ->label('Foto')
                 ->image()
@@ -214,7 +228,10 @@ class DelincuenteResource extends Resource
                                 ->get()
                                 ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ', ' . $d->rut]);
                         })
-                        ->required(),
+                        ->required()
+                        ->validationMessages([
+                            'required' => 'Campo requerido',
+                        ]),
                     Forms\Components\Select::make('parentesco')
                         ->label('Parentesco')
                         ->options([
@@ -261,6 +278,9 @@ class DelincuenteResource extends Resource
                             'prima tercera' => 'Prima tercera',
                         ])
                         ->required()
+                        ->validationMessages([
+                            'required' => 'Campo requerido',
+                        ])
                         ->afterStateUpdated(function ($state, $component, $set, $get, $livewire) {
                             $parentesco = strtolower($state);
                             $familiarId = $get('familiar_id');
