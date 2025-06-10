@@ -112,13 +112,17 @@ class DelincuenteResource extends Resource
                 ->label('Domicilio')
                 ->required()
                 ->maxLength(255)
-                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
                 ->validationMessages([
                     'required' => 'Campo requerido',
-                    'regex' => 'El domicilio solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
                 ])
                 ->live()
                 ->readonly(),
+            Forms\Components\ViewField::make('domicilio_mapa')
+                ->view('filament.custom.address-map-field', [
+                    'id' => 'domicilio',
+                    'label' => 'Domicilio (mapa)',
+                    'addressField' => 'domicilio',
+                ]),
             Forms\Components\Select::make('comuna_id')
                 ->label('Comuna de Residencia')
                 ->relationship('comuna', 'nombre')
@@ -130,26 +134,18 @@ class DelincuenteResource extends Resource
                 ])
                 ->reactive()
                 ->afterStateUpdated(fn (callable $set) => $set('region_display', null)),
-            Forms\Components\ViewField::make('domicilio_mapa')
-                ->view('filament.custom.address-map-field', [
-                    'id' => 'domicilio',
-                    'label' => 'Domicilio (mapa)',
-                    'addressField' => 'domicilio',
-                ]),
             Forms\Components\TextInput::make('ultimo_lugar_visto')
                 ->label('Último lugar visto')
                 ->required()
                 ->maxLength(255)
-                ->rule('regex:/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ0-9\s\.,#\-]+$/')
                 ->validationMessages([
                     'required' => 'Campo requerido',
-                    'regex' => 'El último lugar visto solo puede contener letras, números, espacios y caracteres básicos (.,#-).',
                 ])
                 ->live()
                 ->readonly(),
             Forms\Components\ViewField::make('ultimo_lugar_visto_mapa')
                 ->view('filament.custom.address-map-field', [
-                    'id' => 'ultimolugar',
+                    'id' => 'ultimo_lugar_visto',
                     'label' => 'Último lugar visto (mapa)',
                     'addressField' => 'ultimo_lugar_visto',
                 ]),
@@ -392,40 +388,42 @@ class DelincuenteResource extends Resource
                     ->limit(30)
                     ->action(
                         Tables\Actions\Action::make('verDomicilioMapa')
-                            ->label('Ver en mapa')
-                            ->icon('heroicon-o-map')
-                            ->modalHeading('Domicilio')
+                            ->label('Ver domicilio')
+                            ->icon('heroicon-o-home')
+                            ->modalHeading('🏠 Domicilio del Delincuente')
                             ->modalContent(fn($record) =>
                                 $record->domicilio
-                                    ? view('filament.custom.address-map-field', [
-                                        'id' => 'domicilio-' . $record->id,
-                                        'label' => $record->domicilio,
-                                        'addressField' => 'domicilio',
+                                    ? view('filament.custom.simple-location-view', [
                                         'address' => $record->domicilio,
                                     ])
-                                    : 'No hay ubicación registrada'
+                                    : '<div class="text-center py-8 text-gray-500">
+                                        <div class="text-4xl mb-2">🏠</div>
+                                        <div>No hay domicilio registrado</div>
+                                       </div>'
                             )
-                            ->visible(fn($record) => $record->domicilio),
+                            ->modalWidth('lg')
+                            ->visible(fn($record) => !empty($record->domicilio)),
                     ),
                 Tables\Columns\TextColumn::make('ultimo_lugar_visto')
                     ->label('Último lugar visto')
                     ->limit(30)
                     ->action(
                         Tables\Actions\Action::make('verUltimoLugarMapa')
-                            ->label('Ver en mapa')
-                            ->icon('heroicon-o-map')
-                            ->modalHeading('Último lugar visto')
+                            ->label('Ver ubicación')
+                            ->icon('heroicon-o-map-pin')
+                            ->modalHeading('👁️ Último Lugar Visto')
                             ->modalContent(fn($record) =>
                                 $record->ultimo_lugar_visto
-                                    ? view('filament.custom.address-map-field', [
-                                        'id' => 'ultimolugar-' . $record->id,
-                                        'label' => $record->ultimo_lugar_visto,
-                                        'addressField' => 'ultimo_lugar_visto',
+                                    ? view('filament.custom.simple-location-view', [
                                         'address' => $record->ultimo_lugar_visto,
                                     ])
-                                    : 'No hay ubicación registrada'
+                                    : '<div class="text-center py-8 text-gray-500">
+                                        <div class="text-4xl mb-2">👁️</div>
+                                        <div>No hay ubicación registrada</div>
+                                       </div>'
                             )
-                            ->visible(fn($record) => $record->ultimo_lugar_visto),
+                            ->modalWidth('lg')
+                            ->visible(fn($record) => !empty($record->ultimo_lugar_visto)),
                     ),
                 Tables\Columns\TextColumn::make('telefono_fijo')
                     ->label('Teléfono fijo'),

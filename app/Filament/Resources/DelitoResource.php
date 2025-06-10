@@ -8,6 +8,7 @@ use App\Models\Sector;
 use App\Models\CodigoDelito;
 use App\Models\Region;
 use App\Models\Comuna;
+use App\Models\Institucion;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -55,16 +56,18 @@ public static function canDelete(Model $record): bool
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Hidden::make('delincuente_id'),
             Forms\Components\Select::make('delincuente_id')
                 ->label('Delincuente (RUT)')
                 ->options(function () {
                     return \App\Models\Delincuente::all()->mapWithKeys(function ($delincuente) {
-                        return [$delincuente->id => $delincuente->rut . ' - ' . $delincuente->nombre];
+                        return [$delincuente->id => $delincuente->rut . ' - ' . $delincuente->nombre . ' ' . $delincuente->apellidos];
                     });
                 })
                 ->searchable()
-                ->required(),
+                ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ]),
             Forms\Components\Select::make('codigo_delito_id')
                 ->label('Código de Delito')
                 ->options(function () {
@@ -75,6 +78,9 @@ public static function canDelete(Model $record): bool
                 })
                 ->searchable()
                 ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
                 ->reactive()
                 ->afterStateUpdated(function (callable $set, $state) {
                     if ($state) {
@@ -85,11 +91,32 @@ public static function canDelete(Model $record): bool
             Forms\Components\Textarea::make('descripcion')
                 ->label('Descripción')
                 ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
                 ->maxLength(1000),
+            Forms\Components\TextInput::make('ubicacion')
+                ->label('Ubicación del Delito')
+                ->required()
+                ->maxLength(255)
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
+                ->live()
+                ->readonly(),
+            Forms\Components\ViewField::make('ubicacion_mapa')
+                ->view('filament.custom.address-map-field', [
+                    'id' => 'ubicacion',
+                    'label' => 'Ubicación (mapa)',
+                    'addressField' => 'ubicacion',
+                ]),
             Forms\Components\Select::make('region_id')
                 ->label('Región')
                 ->options(Region::pluck('nombre', 'id'))
                 ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
                 ->live(),
             Forms\Components\Select::make('comuna_id')
                 ->label('Comuna')
@@ -101,15 +128,24 @@ public static function canDelete(Model $record): bool
                     return Comuna::where('region_id', $regionId)->pluck('nombre', 'id');
                 })
                 ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
                 ->searchable()
                 ->preload(),
             Forms\Components\Select::make('sector_id')
                 ->label('Sector')
                 ->relationship('sector', 'nombre')
-                ->required(),
+                ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ]),
             Forms\Components\DatePicker::make('fecha')
                 ->label('Fecha del Delito')
-                ->required(),
+                ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ]),
         ]);
     }
 
@@ -168,6 +204,27 @@ public static function canDelete(Model $record): bool
                     
                     return $state;
                 }),
+            Tables\Columns\TextColumn::make('ubicacion')
+                ->label('Ubicación')
+                ->limit(30)
+                ->action(
+                    Tables\Actions\Action::make('verUbicacionMapa')
+                        ->label('Ver ubicación')
+                        ->icon('heroicon-o-map-pin')
+                        ->modalHeading('📍 Ubicación del Delito')
+                        ->modalContent(fn($record) =>
+                            $record->ubicacion
+                                ? view('filament.custom.simple-location-view', [
+                                    'address' => $record->ubicacion,
+                                ])
+                                : '<div class="text-center py-8 text-gray-500">
+                                    <div class="text-4xl mb-2">📍</div>
+                                    <div>No hay ubicación registrada para este delito</div>
+                                   </div>'
+                        )
+                        ->modalWidth('lg')
+                        ->visible(fn($record) => !empty($record->ubicacion)),
+                ),
             Tables\Columns\TextColumn::make('region.nombre')
                 ->label('Región')
                 ->sortable(),
@@ -198,46 +255,67 @@ public static function canDelete(Model $record): bool
         ->filters([
             SelectFilter::make('codigo_delito_id')
                 ->label('Código de Delito')
-                ->relationship('codigoDelito', 'codigo')
-                ->searchable()
-                ->preload(),
-
-            SelectFilter::make('codigo_delito_descripcion')
-                ->label('Descripción del Delito')
-                ->relationship('codigoDelito', 'descripcion')
-                ->searchable()
-                ->preload(),
+                ->options(function () {
+                    // Solo mostrar códigos que tienen delitos asociados
+                    return CodigoDelito::whereHas('delitos')
+                        ->orderBy('codigo')
+                        ->get()
+                        ->mapWithKeys(fn($codigo) => [$codigo->id => $codigo->codigo . ' - ' . $codigo->descripcion])
+                        ->toArray();
+                }),
 
             SelectFilter::make('region_id')
                 ->label('Región')
-                ->relationship('region', 'nombre')
-                ->searchable()
-                ->preload(),
+                ->options(function () {
+                    // Solo mostrar regiones que tienen delitos
+                    return Region::whereHas('delitos')
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                }),
 
             SelectFilter::make('comuna_id')
                 ->label('Comuna')
-                ->relationship('comuna', 'nombre')
-                ->searchable()
-                ->preload(),
+                ->options(function () {
+                    // Solo mostrar comunas que tienen delitos
+                    return Comuna::whereHas('delitos')
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                }),
 
             SelectFilter::make('sector_id')
                 ->label('Sector')
-                ->relationship('sector', 'nombre')
-                ->searchable()
-                ->preload(),
+                ->options(function () {
+                    // Solo mostrar sectores que tienen delitos
+                    return Sector::whereHas('delitos')
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                }),
 
             SelectFilter::make('delincuente_id')
                 ->label('Delincuente')
-                ->relationship('delincuentes', 'nombre')
+                ->options(function () {
+                    // Solo mostrar delincuentes que tienen delitos
+                    return \App\Models\Delincuente::whereHas('delitos')
+                        ->orderBy('nombre')
+                        ->get()
+                        ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ' (' . $d->rut . ')'])
+                        ->toArray();
+                })
                 ->searchable()
-                ->preload()
                 ->multiple(),
 
             SelectFilter::make('institucion_id')
                 ->label('Institución')
-                ->relationship('institucion', 'nombre')
-                ->searchable()
-                ->preload()
+                ->options(function () {
+                    // Solo mostrar instituciones que tienen delitos
+                    return \App\Models\Institucion::whereHas('delitos')
+                        ->orderBy('nombre')
+                        ->pluck('nombre', 'id')
+                        ->toArray();
+                })
                 ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Super Admin'])),
 
             Filter::make('fecha_delito')
@@ -462,12 +540,31 @@ public static function canDelete(Model $record): bool
     public static function exportSelectedToPdf(Collection $records)
     {
         try {
-            // Usar el servicio para generar el PDF
-            return PdfExportService::exportDelitosCollectionToPdf(
-                $records, 
-                ['Selección manual' => $records->count() . ' registros'],
-                'Reporte de Delitos Seleccionados'
-            );
+            $filtrosAplicados = [
+                'Usuario' => auth()->user()->name,
+                'Rol' => auth()->user()->roles->first()->name ?? 'Sin rol',
+                'Selección' => $records->count() . ' registros seleccionados',
+            ];
+            
+            if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                $filtrosAplicados['Institución'] = auth()->user()->institucion->nombre ?? 'N/A';
+            }
+            
+            $data = [
+                'delitos' => $records,
+                'titulo' => 'Reporte de Delitos Seleccionados',
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => $filtrosAplicados,
+                'periodo' => 'Registros seleccionados',
+            ];
+            
+            return response()->streamDownload(function () use ($data) {
+                echo Pdf::loadHtml(
+                    Blade::render('reports.delitos-pdf', $data)
+                )->setPaper('A4', 'landscape')->stream();
+            }, 'delitos_seleccionados_' . now()->format('Y_m_d_H_i_s') . '.pdf');
 
         } catch (\Exception $e) {
             Notification::make()

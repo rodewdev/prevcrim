@@ -11,7 +11,10 @@ class Delito extends Model
 
     protected $table = 'delitos';
 
-    protected $fillable = ['codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha','user_id', 'institucion_id'];
+    protected $fillable = [
+        'codigo', 'codigo_delito_id', 'descripcion', 'sector_id', 'comuna_id', 'region_id', 'fecha',
+        'user_id', 'institucion_id', 'ubicacion', 'ubicacion_lat', 'ubicacion_lng'
+    ];
 
 
     public function codigoDelito()

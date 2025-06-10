@@ -17,4 +17,9 @@ class Institucion extends Model
     {
         return $this->hasMany(User::class, 'institucion_id');
     }
+
+    public function delitos()
+    {
+        return $this->hasMany(Delito::class, 'institucion_id');
+    }
 }
