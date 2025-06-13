@@ -601,6 +601,18 @@ class DelincuenteResource extends Resource
                             );
                     })
             ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('exportar_pdf')
+                    ->label('Exportar a PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('success')
+                    ->action(function () {
+                        $query = static::getEloquentQuery();
+                        $filtros = [];
+                        return \App\Services\PdfExportService::exportDelincuentesToPdf($query, $filtros, 'Reporte de Delincuentes');
+                    })
+                    ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador'])),
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
             ])

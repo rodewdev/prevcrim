@@ -210,6 +210,190 @@ class PdfExportService
     }
 
     /**
+     * Exportar delincuentes filtrados a PDF
+     */
+    public static function exportDelincuentesToPdf($query, array $filtros = [], string $titulo = 'Reporte de Delincuentes'): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        try {
+            // Cargar relaciones necesarias
+            $delincuentes = $query->with(['comuna', 'familiares', 'delitos'])->orderBy('nombre')->get();
+
+            // Validar datos
+            if ($delincuentes->isEmpty()) {
+                throw new \Exception('No hay registros para exportar');
+            }
+
+            $data = [
+                'delincuentes' => $delincuentes,
+                'titulo' => $titulo,
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => $filtros,
+                'periodo' => static::getPeriodoFromFilters($filtros),
+            ];
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.delincuentes-pdf', $data);
+            $pdf->setPaper('A4', 'landscape');
+            $pdf->setOptions(static::getDefaultPdfOptions());
+
+            \Filament\Notifications\Notification::make()
+                ->title('PDF generado exitosamente')
+                ->body('El reporte se ha generado correctamente con ' . $delincuentes->count() . ' registros.')
+                ->success()
+                ->send();
+
+            $filename = 'reporte_delincuentes_' . now()->format('Y_m_d_H_i_s') . '.pdf';
+
+            return response()->streamDownload(function () use ($pdf) {
+                echo $pdf->output();
+            }, $filename, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error al generar PDF de delincuentes: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+            ]);
+
+            \Filament\Notifications\Notification::make()
+                ->title('Error al generar PDF')
+                ->body('Ocurrió un error: ' . $e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Exportar delincuentes seleccionados a PDF
+     */
+    public static function exportSelectedDelincuentesToPdf(Collection $delincuentes): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        try {
+            // Cargar relaciones si no están cargadas
+            $delincuentes = $delincuentes->load(['comuna', 'region', 'familiares', 'delitos']);
+
+            // Validar datos
+            $errors = static::validatePdfData($delincuentes);
+            if (!empty($errors)) {
+                throw new \Exception(implode(', ', $errors));
+            }
+
+            $data = [
+                'delincuentes' => $delincuentes,
+                'titulo' => 'Reporte de Delincuentes Seleccionados',
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => ['Selección manual' => $delincuentes->count() . ' registros'],
+                'periodo' => 'Registros seleccionados',
+            ];
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.delincuentes-pdf', $data);
+            $pdf->setPaper('A4', 'landscape');
+            $pdf->setOptions(static::getDefaultPdfOptions());
+
+            \Filament\Notifications\Notification::make()
+                ->title('PDF generado exitosamente')
+                ->body('Se han exportado ' . $delincuentes->count() . ' registros seleccionados.')
+                ->success()
+                ->send();
+
+            $filename = 'delincuentes_seleccionados_' . now()->format('Y_m_d_H_i_s') . '.pdf';
+
+            return response()->streamDownload(function () use ($pdf) {
+                echo $pdf->output();
+            }, $filename, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al generar PDF de delincuentes seleccionados: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+                'delincuentes_count' => $delincuentes->count(),
+            ]);
+
+            \Filament\Notifications\Notification::make()
+                ->title('Error al generar PDF')
+                ->body('Ocurrió un error: ' . $e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Exportar colección de delincuentes a PDF con filtros personalizados
+     */
+    public static function exportDelincuentesCollectionToPdf(Collection $delincuentes, array $filtros = [], string $titulo = 'Reporte de Delincuentes'): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        try {
+            // Cargar relaciones si no están cargadas
+            $delincuentes = $delincuentes->load(['comuna', 'region', 'familiares', 'delitos']);
+
+            // Validar datos
+            $errors = static::validatePdfData($delincuentes);
+            if (!empty($errors)) {
+                throw new \Exception(implode(', ', $errors));
+            }
+
+            $data = [
+                'delincuentes' => $delincuentes,
+                'titulo' => $titulo,
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => $filtros,
+                'periodo' => 'Registros seleccionados',
+            ];
+
+            // Generar PDF
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('reports.delincuentes-pdf', $data);
+            $pdf->setPaper('A4', 'landscape');
+            $pdf->setOptions(static::getDefaultPdfOptions());
+
+            // Notificación de éxito
+            \Filament\Notifications\Notification::make()
+                ->title('PDF generado exitosamente')
+                ->body('El reporte se ha generado correctamente con ' . $delincuentes->count() . ' registros.')
+                ->success()
+                ->send();
+
+            $filename = 'delincuentes_seleccionados_' . now()->format('Y_m_d_H_i_s') . '.pdf';
+
+            return response()->streamDownload(function () use ($pdf) {
+                echo $pdf->output();
+            }, $filename, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al generar PDF de delincuentes seleccionados: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+            ]);
+
+            \Filament\Notifications\Notification::make()
+                ->title('Error al generar PDF')
+                ->body('Ocurrió un error: ' . $e->getMessage())
+                ->danger()
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
+    }
+
+    /**
      * Validar que tenemos los datos necesarios para generar el PDF
      */
     private static function validatePdfData($delitos): array
