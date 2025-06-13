@@ -1,0 +1,228 @@
+/*
+ * Override CSS para Filament - Temas Institucionales
+ * Este archivo asegura que los estilos se apliquen con máxima prioridad
+ */
+
+/* FORZAR VARIABLES CSS GLOBALMENTE */
+:root,
+html,
+body {
+    --fi-primary-50: var(--accent-color, #EAF3EB) !important;
+    --fi-primary-500: var(--primary-color, #2E6B36) !important;
+    --fi-primary-600: var(--primary-hover-color, #3D8B46) !important;
+    --fi-secondary-500: var(--secondary-color, #F5D76E) !important;
+    --fi-success-500: var(--success-color, #43A047) !important;
+    --fi-warning-500: var(--warning-color, #FFD700) !important;
+    --fi-danger-500: var(--danger-color, #D32F2F) !important;
+    --fi-info-500: var(--info-color, #2196F3) !important;
+}
+
+/* SIDEBAR - MÁXIMA ESPECIFICIDAD */
+html body .fi-sidebar,
+html body aside.fi-sidebar,
+html body .fi-sidebar-nav,
+html body [x-data*="sidebar"] {
+    background-color: var(--sidebar-color, #2E6B36) !important;
+    background-image: none !important;
+    background: var(--sidebar-color, #2E6B36) !important;
+}
+
+/* ITEMS DEL SIDEBAR */
+html body .fi-sidebar-nav-item,
+html body .fi-sidebar-nav-item > a,
+html body .fi-sidebar-nav-item-button {
+    color: rgba(255, 255, 255, 0.9) !important;
+    transition: all 0.2s ease !important;
+}
+
+html body .fi-sidebar-nav-item:hover:not(.fi-sidebar-nav-item-active),
+html body .fi-sidebar-nav-item:hover:not(.fi-sidebar-nav-item-active) > a {
+    background-color: var(--primary-hover-color, #3D8B46) !important;
+    color: white !important;
+}
+
+html body .fi-sidebar-nav-item-active,
+html body .fi-sidebar-nav-item-active > a,
+html body .fi-sidebar-nav-item[aria-current="page"],
+html body .fi-sidebar-nav-item[aria-current="page"] > a {
+    background-color: var(--secondary-color, #F5D76E) !important;
+    color: var(--text-color, #4A4A4A) !important;
+    font-weight: 700 !important;
+    border-left: 4px solid white !important;
+}
+
+/* NAVBAR/TOPBAR */
+html body .fi-topbar,
+html body header.fi-topbar,
+html body .fi-header {
+    background-color: var(--navbar-color, #2E6B36) !important;
+    background-image: none !important;
+    background: var(--navbar-color, #2E6B36) !important;
+    border-bottom: 3px solid var(--secondary-color, #F5D76E) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+}
+
+html body .fi-topbar *,
+html body .fi-topbar-content *,
+html body .fi-header * {
+    color: var(--text-light-color, #FFFFFF) !important;
+}
+
+/* BOTONES */
+html body .fi-btn,
+html body button[type="submit"],
+html body .fi-btn-primary,
+html body .fi-btn[data-style="primary"] {
+    background-color: var(--primary-color, #2E6B36) !important;
+    border-color: var(--primary-color, #2E6B36) !important;
+    color: var(--text-light-color, #FFFFFF) !important;
+    font-weight: 600 !important;
+}
+
+html body .fi-btn:hover,
+html body button[type="submit"]:hover,
+html body .fi-btn-primary:hover,
+html body .fi-btn[data-style="primary"]:hover {
+    background-color: var(--primary-hover-color, #3D8B46) !important;
+    border-color: var(--primary-hover-color, #3D8B46) !important;
+}
+
+/* HEADERS DE TABLA */
+html body .fi-ta-header,
+html body .fi-ta-header-cell,
+html body thead th,
+html body .fi-ta-header-cell-content {
+    background-color: var(--primary-color, #2E6B36) !important;
+    background-image: none !important;
+    background: var(--primary-color, #2E6B36) !important;
+    color: var(--text-light-color, #FFFFFF) !important;
+    font-weight: 700 !important;
+}
+
+html body .fi-ta-header-cell button,
+html body .fi-ta-header-cell a,
+html body .fi-ta-header-cell span {
+    color: var(--text-light-color, #FFFFFF) !important;
+}
+
+/* FILAS DE TABLA */
+html body .fi-ta-row:nth-child(even),
+html body tbody tr:nth-child(even) {
+    background-color: var(--table-stripe-color, #EAF3EB) !important;
+}
+
+html body .fi-ta-row:nth-child(odd),
+html body tbody tr:nth-child(odd) {
+    background-color: var(--bg-color, #FFFFFF) !important;
+}
+
+html body .fi-ta-row:hover,
+html body tbody tr:hover {
+    background-color: var(--accent-color, #EAF3EB) !important;
+    transform: scale(1.001) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+/* FORMULARIOS */
+html body .fi-input:focus,
+html body .fi-select:focus,
+html body .fi-textarea:focus,
+html body input:focus, 
+html body select:focus, 
+html body textarea:focus {
+    border-color: var(--primary-color, #2E6B36) !important;
+    box-shadow: 0 0 0 2px rgba(46, 107, 54, 0.1) !important;
+    outline: none !important;
+}
+
+html body .fi-checkbox:checked,
+html body .fi-radio:checked,
+html body input[type="checkbox"]:checked,
+html body input[type="radio"]:checked {
+    background-color: var(--primary-color, #2E6B36) !important;
+    border-color: var(--primary-color, #2E6B36) !important;
+}
+
+/* ENLACES */
+html body .fi-link,
+html body a:not(.fi-btn):not([class*="fi-ta"]) {
+    color: var(--primary-color, #2E6B36) !important;
+}
+
+html body .fi-link:hover,
+html body a:not(.fi-btn):not([class*="fi-ta"]):hover {
+    color: var(--primary-hover-color, #3D8B46) !important;
+}
+
+/* STATS CARDS */
+html body .fi-stats-card {
+    border-left: 4px solid var(--primary-color, #2E6B36) !important;
+}
+
+/* BADGES */
+html body .fi-badge,
+html body .fi-badge-primary {
+    background-color: var(--primary-color, #2E6B36) !important;
+    color: var(--text-light-color, #FFFFFF) !important;
+}
+
+/* Aplicar clases de tema automáticamente según la institución */
+body[data-institution="Carabineros"],
+body.institution-carabineros {
+    --primary-color: #2E6B36 !important;
+    --primary-hover-color: #3D8B46 !important;
+    --secondary-color: #F5D76E !important;
+    --accent-color: #EAF3EB !important;
+    --success-color: #43A047 !important;
+    --warning-color: #FFD700 !important;
+    --danger-color: #D32F2F !important;
+    --info-color: #2196F3 !important;
+    --sidebar-color: #2E6B36 !important;
+    --navbar-color: #2E6B36 !important;
+    --text-color: #4A4A4A !important;
+    --text-light-color: #FFFFFF !important;
+    --bg-color: #FFFFFF !important;
+    --bg-alt-color: #F5F5F5 !important;
+    --table-stripe-color: #EAF3EB !important;
+    --border-color: #EAF3EB !important;
+}
+
+body[data-institution="Paz Ciudadana"],
+body.institution-paz-ciudadana {
+    --primary-color: #002060 !important;
+    --primary-hover-color: #005599 !important;
+    --secondary-color: #0073CF !important;
+    --accent-color: #E1F0FF !important;
+    --success-color: #43A047 !important;
+    --warning-color: #FFD700 !important;
+    --danger-color: #D32F2F !important;
+    --info-color: #0073CF !important;
+    --sidebar-color: #002060 !important;
+    --navbar-color: #002060 !important;
+    --text-color: #333333 !important;
+    --text-light-color: #FFFFFF !important;
+    --bg-color: #FFFFFF !important;
+    --bg-alt-color: #F2F2F2 !important;
+    --table-stripe-color: #E1F0FF !important;
+    --border-color: #E1F0FF !important;
+}
+
+body[data-institution="PDI"],
+body.institution-pdi {
+    --primary-color: #003366 !important;
+    --primary-hover-color: #005599 !important;
+    --secondary-color: #FFD700 !important;
+    --accent-color: #E8F0FA !important;
+    --success-color: #43A047 !important;
+    --warning-color: #FFD700 !important;
+    --danger-color: #D32F2F !important;
+    --info-color: #005599 !important;
+    --sidebar-color: #003366 !important;
+    --navbar-color: #003366 !important;
+    --text-color: #2C2C2C !important;
+    --text-light-color: #FFFFFF !important;
+    --bg-color: #FFFFFF !important;
+    --bg-alt-color: #E0E0E0 !important;
+    --table-stripe-color: #E8F0FA !important;
+    --border-color: #E8F0FA !important;
+}

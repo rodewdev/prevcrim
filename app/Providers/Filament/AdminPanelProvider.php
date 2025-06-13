@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use Althinect\FilamentSpatieRolesPermissions\FilamentSpatieRolesPermissionsPlugin;
+use App\Services\ThemeService;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -28,9 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->colors([
-                'primary' => Color::Amber,
-            ])
+            ->colors($this->getColorsForCurrentUser())
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -55,6 +54,46 @@ class AdminPanelProvider extends PanelProvider
             ->plugin(FilamentSpatieRolesPermissionsPlugin::make())
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->renderHook(
+                'panels::head.end',
+                fn () => view('filament.custom.theme-styles-professional')
+            )
+            ->renderHook(
+                'panels::body.start',
+                function () {
+                    if (auth()->check() && auth()->user()->institucion) {
+                        $institutionName = auth()->user()->institucion->nombre;
+                        $dataAttribute = 'data-institution="' . htmlspecialchars($institutionName) . '"';
+                        return '<script>document.body.setAttribute("' . $dataAttribute . '");</script>';
+                    }
+                    return '';
+                }
+            );
+    }
+
+    /**
+     * Obtener colores dinámicos basados en la institución del usuario
+     */
+    private function getColorsForCurrentUser(): array
+    {
+        try {
+            if (!auth()->check()) {
+                return ['primary' => Color::Blue];
+            }
+
+            $theme = ThemeService::getCurrentUserTheme();
+            
+            return [
+                'primary' => $theme['primary'],
+                'success' => $theme['success'],
+                'warning' => $theme['warning'],
+                'danger' => $theme['danger'],
+                'info' => $theme['info'],
+            ];
+        } catch (\Exception $e) {
+            // En caso de error, usar colores por defecto
+            return ['primary' => Color::Blue];
+        }
     }
 }
