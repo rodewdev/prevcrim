@@ -3,6 +3,22 @@
  * Este archivo asegura que los estilos se apliquen con máxima prioridad
  */
 
+/* Importar fuente formal para PREVCRIM */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Crimson+Text:wght@400;600;700&display=swap');
+
+/* Asegurar que PREVCRIM use fuente formal */
+.prevcrim-logo,
+.prevcrim-title,
+[data-brand="PREVCRIM"] {
+    font-family: 'Playfair Display', 'Crimson Text', 'Times New Roman', serif !important;
+}
+
+/* Override para cualquier elemento que contenga PREVCRIM */
+*:contains("PREVCRIM") {
+    font-family: 'Playfair Display', 'Crimson Text', 'Times New Roman', serif !important;
+    font-weight: 700 !important;
+}
+
 /* FORZAR VARIABLES CSS GLOBALMENTE */
 :root,
 html,
