@@ -38,7 +38,7 @@ public static function canEdit(Model $record): bool
     return auth()->user()->hasRole('Administrador General');
 }
 
-public static function canDelete(Model $record): bool
+public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
 {
     // Solo el Administrador General puede eliminar roles
     return auth()->user()->hasRole('Administrador General');

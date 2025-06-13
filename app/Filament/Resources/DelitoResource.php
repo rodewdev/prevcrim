@@ -35,23 +35,19 @@ class DelitoResource extends Resource
 
 public static function canViewAny(): bool
 {
-    return auth()->user()->hasRole(['Administrador General', 'Jefe de zona', 'Operador']);
-    
+    return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador']);
 }
-
 public static function canCreate(): bool
 {
     return auth()->user()->hasRole(['Administrador General', 'Operador']);
 }
-
-public static function canEdit(Model $record): bool
+public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
 {
     return auth()->user()->hasRole(['Administrador General', 'Operador']);
 }
-
-public static function canDelete(Model $record): bool
+public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
 {
-    return auth()->user()->hasRole(['Administrador General']);
+    return false;
 }
     public static function form(Form $form): Form
     {
@@ -393,7 +389,7 @@ public static function canDelete(Model $record): bool
                         )->setPaper('A4', 'landscape')->stream();
                     }, 'reporte_delitos_' . now()->format('Y_m_d_H_i_s') . '.pdf');
                 })
-                ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de zona', 'Operador'])),
+                ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador'])),
         ])
         ->actions([
             Tables\Actions\EditAction::make(),
@@ -409,7 +405,7 @@ public static function canDelete(Model $record): bool
                     ->action(function (Collection $records) {
                         return static::exportSelectedToPdf($records);
                     })
-                    ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de zona', 'Operador'])),
+                    ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador'])),
             ]),
         ]);
     }

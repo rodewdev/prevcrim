@@ -27,22 +27,19 @@ class DelincuenteResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+        return auth()->user()->hasRole(['Administrador General', 'Operador', 'Jefe de Zona']);
     }
-
     public static function canCreate(): bool
     {
         return auth()->user()->hasRole(['Administrador General', 'Operador']);
     }
-
-    public static function canEdit(Model $record): bool
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return auth()->user()->hasRole(['Administrador General', 'Operador']);
     }
-
-    public static function canDelete(Model $record): bool
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->hasRole(['Administrador General']);
+        return false;
     }
 
     public static function form(Form $form): Form

@@ -80,4 +80,9 @@ class ComunaResource extends Resource
             'edit' => Pages\EditComuna::route('/{record}/edit'),
         ];
     }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('Administrador General');
+    }
 }

@@ -72,4 +72,9 @@ class RegionResource extends Resource
             'edit' => Pages\EditRegion::route('/{record}/edit'),
         ];
     }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('Administrador General');
+    }
 }

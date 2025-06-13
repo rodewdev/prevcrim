@@ -23,10 +23,20 @@ class PatrullajeAsignacionResource extends Resource
 
       public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
-
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador']);
     }
-    
+    public static function canCreate(): bool
+    {
+        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+    }
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+    }
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
     
     public static function form(Form $form): Form
     {

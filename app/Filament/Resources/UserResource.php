@@ -21,12 +21,12 @@ class UserResource extends Resource
 
         public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona']);
     }
     
     public static function canCreate(): bool
     {
-        return auth()->user()->hasRole(['Administrador General', 'Jefe de zona']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona']);
     }
 
     public static function canEdit(Model $record): bool
@@ -34,13 +34,22 @@ class UserResource extends Resource
         return auth()->user()->hasRole(['Administrador General']);
     }
 
-    public static function canDelete(Model $record): bool
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return auth()->user()->hasRole(['Administrador General']);
     }
 
     public static function form(Form $form): Form
     {
+        $user = auth()->user();
+        $isJefeZona = $user && $user->hasRole('Jefe de Zona');
+        $isPazCiudadana = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'paz ciudadana');
+        $isPDI = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'polic'); // para Policía de Investigaciones
+        $isAdmin = $user && $user->hasRole('Administrador General');
+        $roleOptions = Role::pluck('name', 'name');
+        if (($isPazCiudadana || $isPDI) && !$isAdmin) {
+            $roleOptions = $roleOptions->only(['Jefe de Zona', 'Operador']);
+        }
         return $form
             ->schema([
                 Forms\Components\TextInput::make('rut')
@@ -92,14 +101,17 @@ class UserResource extends Resource
                     ->maxLength(255),
                 Forms\Components\Select::make('role')
                     ->label('Rol')
-                    ->options(Role::pluck('name', 'name'))
+                    ->options($roleOptions)
                     ->searchable()
                     ->required(),
                 Forms\Components\Select::make('institucion_id')
                     ->label('Institución')
                     ->relationship('institucion', 'nombre')
                     ->searchable()
-                    ->nullable(),
+                    ->nullable()
+                    ->default($isJefeZona ? $user->institucion_id : null)
+                    ->disabled($isJefeZona)
+                    ->hidden($isJefeZona),
             ]);
     }
 

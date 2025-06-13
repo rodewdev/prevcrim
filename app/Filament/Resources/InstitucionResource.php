@@ -61,4 +61,9 @@ class InstitucionResource extends Resource
             'edit' => Pages\EditInstitucion::route('/{record}/edit'),
         ];
     }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->hasRole('Administrador General');
+    }
 }
