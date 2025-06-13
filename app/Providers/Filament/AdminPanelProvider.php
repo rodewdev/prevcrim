@@ -32,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('PREVCRIM')
             ->brandLogo(null)
             ->brandLogoHeight('2rem')
-            ->favicon(null)
+            ->favicon(asset('favicon.ico'))
             ->colors($this->getColorsForCurrentUser())
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -42,7 +42,11 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\FilamentInfoWidget::class, // Removed Filament Info Widget
+                \App\Filament\Widgets\GraficoIntegradoDelitos::class,
+                \App\Filament\Widgets\DelitosPorComunaChart::class,
+                \App\Filament\Widgets\DelitosPorRegionChart::class,
+                \App\Filament\Widgets\DelitosPorSectorChart::class,
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -64,10 +68,22 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.custom.theme-styles-professional')
             )
             ->renderHook(
+                'panels::head.start',
+                fn () => view('filament.custom.favicon-prevcrim')
+            )
+            ->renderHook(
                 'panels::body.start',
                 function () {
                     if (auth()->check() && auth()->user()->institucion) {
                         $institutionName = auth()->user()->institucion->nombre;
+                        
+                        // Asegurar que tenemos un string
+                        if (is_array($institutionName)) {
+                            $institutionName = json_encode($institutionName);
+                        } elseif (!is_string($institutionName)) {
+                            $institutionName = (string)$institutionName;
+                        }
+                        
                         $dataAttribute = 'data-institution="' . htmlspecialchars($institutionName) . '"';
                         return '<script>document.body.setAttribute("' . $dataAttribute . '");</script>';
                     }
