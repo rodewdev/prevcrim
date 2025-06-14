@@ -19,32 +19,49 @@ class UserResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-        public static function canViewAny(): bool
+    public static function canViewAny(): bool
     {
+        // Solo Administrador General y Jefe de Zona pueden ver usuarios
         return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona']);
     }
     
     public static function canCreate(): bool
     {
+        // Solo Administrador General y Jefe de Zona pueden crear usuarios
         return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona']);
     }
 
     public static function canEdit(Model $record): bool
     {
-        return auth()->user()->hasRole(['Administrador General']);
+        $user = auth()->user();
+        
+        // Administrador General puede editar cualquier usuario
+        if ($user->hasRole('Administrador General')) {
+            return true;
+        }
+        
+        // Jefe de Zona puede editar usuarios de su institución (incluyendo otros Jefes de Zona)
+        if ($user->hasRole('Jefe de Zona') && 
+            $user->institucion_id && 
+            $record->institucion_id === $user->institucion_id) {
+            return true;
+        }
+        
+        return false;
     }
 
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->hasRole(['Administrador General']);
+        // Solo Administrador General puede eliminar usuarios
+        return auth()->user()->hasRole('Administrador General');
     }
 
     public static function form(Form $form): Form
     {
         $user = auth()->user();
         $isJefeZona = $user && $user->hasRole('Jefe de Zona');
-        $isPazCiudadana = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'paz ciudadana');
-        $isPDI = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'polic'); // para Policía de Investigaciones
+        $isPazCiudadana = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'Paz Ciudadana');
+        $isPDI = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'Policia de Investigaciones');
         $isAdmin = $user && $user->hasRole('Administrador General');
         $roleOptions = Role::pluck('name', 'name');
         if (($isPazCiudadana || $isPDI) && !$isAdmin) {
@@ -60,6 +77,8 @@ class UserResource extends Resource
                 ->placeholder('11.111.111-1')
                 ->helperText('Ingrese un RUT chileno válido con formato XX.XXX.XXX-X')
                 ->rules([new RutChileno()])
+                // Deshabilitar edición del RUT en formulario de edición
+                ->disabled(fn ($context) => $context === 'edit')
                 ->live()
                 ->afterStateUpdated(function (?string $state, Forms\Components\TextInput $component, $set, $livewire) {
                     // Si el estado es null, no procesar
@@ -135,9 +154,21 @@ class UserResource extends Resource
                     ->searchable()
                     ->nullable()
                     ->placeholder('Seleccione una institución (opcional)')
-                    ->default($isJefeZona ? $user->institucion_id : null)
-                    ->disabled($isJefeZona)
-                    ->hidden($isJefeZona),
+                    // Establecer la institución por defecto si el usuario actual no es Administrador General
+                    ->default(function() use ($user) {
+                        if ($user && $user->institucion_id && !$user->hasRole('Administrador General')) {
+                            return $user->institucion_id;
+                        }
+                        return null;
+                    })
+                    // Deshabilitar el campo si el usuario actual no es Administrador General
+                    ->disabled(function() use ($user) {
+                        return $user && !$user->hasRole('Administrador General');
+                    })
+                    // Ocultar el campo completamente para usuarios no Administradores Generales
+                    ->visible(function() use ($user) {
+                        return $user->hasRole('Administrador General');
+                    }),
             ]);
     }
 
@@ -152,8 +183,8 @@ class UserResource extends Resource
                     return $query;
                 }
                 
-                // Si no es admin, solo muestra usuarios de su misma institución
-                if ($user->institucion_id) {
+                // Si es Jefe de Zona, solo ve usuarios de su institución
+                if ($user->hasRole('Jefe de Zona') && $user->institucion_id) {
                     return $query->where('institucion_id', $user->institucion_id);
                 }
                 
@@ -166,21 +197,41 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('email_verified_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('roles.name')->label('Rol')->sortable(),
                 Tables\Columns\TextColumn::make('institucion.nombre')->label('Institución')->sortable(),
-                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true)->visible(false),
+                Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true)->visible(false),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('institucion_id')
                     ->label('Institución')
                     ->relationship('institucion', 'nombre')
                     ->visible(fn () => auth()->user()->hasRole('Administrador General')),
+                Tables\Filters\SelectFilter::make('role')
+                    ->label('Rol')
+                    ->options([
+                        'Operador' => 'Operador',
+                        'Jefe de Zona' => 'Jefe de Zona',
+                    ])
+                    ->query(function ($query, array $data) {
+                        if (!$data['value']) {
+                            return $query;
+                        }
+                        
+                        return $query->whereHas('roles', function ($query) use ($data) {
+                            $query->where('name', $data['value']);
+                        });
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                // Solo mostrar acción de eliminar para Administrador General
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => auth()->user()->hasRole('Administrador General')),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    // Solo mostrar acción de eliminación masiva para Administrador General
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()->hasRole('Administrador General')),
                 ]),
             ]);
     }
@@ -199,11 +250,37 @@ class UserResource extends Resource
         ];
     }
 
-    // Hook para asignar el rol seleccionado
+    // Hook para asignar el rol seleccionado y asegurar la asignación de institución
     public static function afterSave($record, $data)
     {
+        // Asignar rol
         if (isset($data['role'])) {
             $record->syncRoles([$data['role']]);
         }
+        
+        // Si el usuario actual tiene una institución y no es Administrador General,
+        // forzar la institución del nuevo usuario a ser la misma
+        $user = auth()->user();
+        if ($user && $user->institucion_id && !$user->hasRole('Administrador General')) {
+            // Actualizar institución solo si es diferente para evitar bucles
+            if ($record->institucion_id != $user->institucion_id) {
+                $record->institucion_id = $user->institucion_id;
+                $record->save();
+            }
+        }
+    }
+    
+    // Preparar datos del formulario antes de guardar
+    public static function mutateFormDataBeforeCreate(array $data): array
+    {
+        $user = auth()->user();
+        
+        // Si el usuario no es Administrador General y tiene una institución asignada,
+        // forzar la institución del nuevo usuario a ser la misma
+        if ($user && $user->institucion_id && !$user->hasRole('Administrador General')) {
+            $data['institucion_id'] = $user->institucion_id;
+        }
+        
+        return $data;
     }
 }
