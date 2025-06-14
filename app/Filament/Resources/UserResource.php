@@ -56,11 +56,15 @@ class UserResource extends Resource
                 ->label('RUT')
                 ->unique(User::class, 'rut', fn ($record) => $record)
                 ->maxLength(12)
+                ->required()
+                ->placeholder('11.111.111-1')
+                ->helperText('Ingrese un RUT chileno válido con formato XX.XXX.XXX-X')
                 ->rules([new RutChileno()])
                 ->live()
                 ->afterStateUpdated(function (?string $state, Forms\Components\TextInput $component, $set, $livewire) {
                     // Si el estado es null, no procesar
                     if (!$state) {
+                        $livewire->addError('rut', 'Ingrese un RUT válido. Ejemplo: 11.111.111-1');
                         return;
                     }
                     
@@ -83,32 +87,54 @@ class UserResource extends Resource
                             $livewire->addError('rut', 'El RUT ingresado no es válido.');
                         }
                     } else {
-                        $livewire->resetValidation('rut');
+                        $livewire->addError('rut', 'Ingrese un RUT válido. Ejemplo: 11.111.111-1');
                     }
                 }),
                 Forms\Components\TextInput::make('name')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(255)
+                    ->placeholder('Nombre y Apellido')
+                    ->helperText('Ingrese nombres y apellidos (solo letras, espacios y tildes)')
+                    ->regex('/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/')
+                    ->validationMessages([
+                        'regex' => 'El nombre solo puede contener letras, espacios y tildes.',
+                    ]),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
-                    ->maxLength(255),
-                Forms\Components\DateTimePicker::make('email_verified_at'),
+                    ->placeholder('usuario@dominio.com')
+                    ->helperText('Ingrese un correo electrónico válido')
+                    ->maxLength(255)
+                    ->validationMessages([
+                        'email' => 'Ingrese un email válido. Ejemplo: mail@mail.com',
+                    ]),
+                Forms\Components\Hidden::make('email_verified_at')
+                    ->default(now()),
                 Forms\Components\TextInput::make('password')
                     ->password()
                     ->dehydrateStateUsing(fn($state) => !empty($state) ? Hash::make($state) : null)
                     ->required(fn($context) => $context === 'create')
-                    ->maxLength(255),
+                    ->minLength(8)
+                    ->maxLength(255)
+                    ->helperText('La contraseña debe tener al menos 8 caracteres')
+                    ->validationMessages([
+                        'min' => 'La contraseña debe tener al menos 8 caracteres',
+                    ]),
                 Forms\Components\Select::make('role')
                     ->label('Rol')
                     ->options($roleOptions)
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->placeholder('Seleccione un rol')
+                    ->validationMessages([
+                        'required' => 'Debe seleccionar un rol',
+                    ]),
                 Forms\Components\Select::make('institucion_id')
                     ->label('Institución')
                     ->relationship('institucion', 'nombre')
                     ->searchable()
                     ->nullable()
+                    ->placeholder('Seleccione una institución (opcional)')
                     ->default($isJefeZona ? $user->institucion_id : null)
                     ->disabled($isJefeZona)
                     ->hidden($isJefeZona),
