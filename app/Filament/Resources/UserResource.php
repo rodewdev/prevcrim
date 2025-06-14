@@ -144,6 +144,21 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function ($query) {
+                $user = auth()->user();
+                
+                // Si es Administrador General, puede ver todos los usuarios
+                if ($user->hasRole('Administrador General')) {
+                    return $query;
+                }
+                
+                // Si no es admin, solo muestra usuarios de su misma institución
+                if ($user->institucion_id) {
+                    return $query->where('institucion_id', $user->institucion_id);
+                }
+                
+                return $query;
+            })
             ->columns([
                 Tables\Columns\TextColumn::make('rut')->label('RUT')->searchable(),
                 Tables\Columns\TextColumn::make('name')->searchable(),
@@ -155,7 +170,10 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('updated_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('institucion_id')
+                    ->label('Institución')
+                    ->relationship('institucion', 'nombre')
+                    ->visible(fn () => auth()->user()->hasRole('Administrador General')),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
