@@ -252,9 +252,18 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             SelectFilter::make('codigo_delito_id')
                 ->label('Código de Delito')
                 ->options(function () {
-                    // Solo mostrar códigos que tienen delitos asociados
-                    return CodigoDelito::whereHas('delitos')
-                        ->orderBy('codigo')
+                    // Base query
+                    $query = CodigoDelito::query()->whereHas('delitos');
+                    
+                    // Si el usuario no es Admin General, filtrar por su institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $institucion_id = auth()->user()->institucion_id;
+                        $query->whereHas('delitos', function($q) use ($institucion_id) {
+                            $q->where('delitos.institucion_id', $institucion_id);
+                        });
+                    }
+                    
+                    return $query->orderBy('codigo')
                         ->get()
                         ->mapWithKeys(fn($codigo) => [$codigo->id => $codigo->codigo . ' - ' . $codigo->descripcion])
                         ->toArray();
@@ -263,9 +272,18 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             SelectFilter::make('region_id')
                 ->label('Región')
                 ->options(function () {
-                    // Solo mostrar regiones que tienen delitos
-                    return Region::whereHas('delitos')
-                        ->orderBy('nombre')
+                    // Base query
+                    $query = Region::query()->whereHas('delitos');
+                    
+                    // Si el usuario no es Admin General, filtrar por su institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $institucion_id = auth()->user()->institucion_id;
+                        $query->whereHas('delitos', function($q) use ($institucion_id) {
+                            $q->where('delitos.institucion_id', $institucion_id);
+                        });
+                    }
+                    
+                    return $query->orderBy('nombre')
                         ->pluck('nombre', 'id')
                         ->toArray();
                 }),
@@ -273,9 +291,18 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             SelectFilter::make('comuna_id')
                 ->label('Comuna')
                 ->options(function () {
-                    // Solo mostrar comunas que tienen delitos
-                    return Comuna::whereHas('delitos')
-                        ->orderBy('nombre')
+                    // Base query
+                    $query = Comuna::query()->whereHas('delitos');
+                    
+                    // Si el usuario no es Admin General, filtrar por su institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $institucion_id = auth()->user()->institucion_id;
+                        $query->whereHas('delitos', function($q) use ($institucion_id) {
+                            $q->where('delitos.institucion_id', $institucion_id);
+                        });
+                    }
+                    
+                    return $query->orderBy('nombre')
                         ->pluck('nombre', 'id')
                         ->toArray();
                 }),
@@ -283,9 +310,18 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             SelectFilter::make('sector_id')
                 ->label('Sector')
                 ->options(function () {
-                    // Solo mostrar sectores que tienen delitos
-                    return Sector::whereHas('delitos')
-                        ->orderBy('nombre')
+                    // Base query
+                    $query = Sector::query()->whereHas('delitos');
+                    
+                    // Si el usuario no es Admin General, filtrar por su institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $institucion_id = auth()->user()->institucion_id;
+                        $query->whereHas('delitos', function($q) use ($institucion_id) {
+                            $q->where('delitos.institucion_id', $institucion_id);
+                        });
+                    }
+                    
+                    return $query->orderBy('nombre')
                         ->pluck('nombre', 'id')
                         ->toArray();
                 }),
@@ -293,9 +329,22 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             SelectFilter::make('delincuente_id')
                 ->label('Delincuente')
                 ->options(function () {
-                    // Solo mostrar delincuentes que tienen delitos
-                    return \App\Models\Delincuente::whereHas('delitos')
-                        ->orderBy('nombre')
+                    // Base query
+                    $query = \App\Models\Delincuente::query()->whereHas('delitos');
+                    
+                    // Si el usuario no es Admin General, filtrar por su institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $institucion_id = auth()->user()->institucion_id;
+                        $query->whereHas('delitos', function($q) use ($institucion_id) {
+                            $q->whereIn('delincuente_delito.delito_id', function($subq) use ($institucion_id) {
+                                $subq->select('id')
+                                     ->from('delitos')
+                                     ->where('institucion_id', $institucion_id);
+                            });
+                        });
+                    }
+                    
+                    return $query->orderBy('nombre')
                         ->get()
                         ->mapWithKeys(fn($d) => [$d->id => $d->nombre . ' ' . $d->apellidos . ' (' . $d->rut . ')'])
                         ->toArray();
@@ -357,37 +406,9 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                 ->label('Exportar a PDF')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
-                ->action(function () {
-                    // Obtener datos con relaciones cargadas
-                    $query = static::getEloquentQuery()
-                        ->with(['delincuentes', 'codigoDelito', 'region', 'comuna', 'sector', 'user', 'institucion']);
-                    
-                    $delitos = $query->get();
-                    
-                    $filtrosAplicados = [
-                        'Usuario' => auth()->user()->name,
-                        'Rol' => auth()->user()->roles->first()->name ?? 'Sin rol',
-                    ];
-                    
-                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
-                        $filtrosAplicados['Institución'] = auth()->user()->institucion->nombre ?? 'N/A';
-                    }
-                    
-                    $data = [
-                        'delitos' => $delitos,
-                        'titulo' => 'Reporte de Delitos',
-                        'fecha_generacion' => now()->format('d/m/Y H:i:s'),
-                        'usuario' => auth()->user()->name,
-                        'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
-                        'filtros_aplicados' => $filtrosAplicados,
-                        'periodo' => 'Todos los registros',
-                    ];
-                    
-                    return response()->streamDownload(function () use ($data) {
-                        echo Pdf::loadHtml(
-                            Blade::render('reports.delitos-pdf', $data)
-                        )->setPaper('A4', 'landscape')->stream();
-                    }, 'reporte_delitos_' . now()->format('Y_m_d_H_i_s') . '.pdf');
+                ->action(function ($livewire) {
+                    // Usar el método exportToPdf que maneja los filtros activos
+                    return static::exportToPdf($livewire);
                 })
                 ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador'])),
         ])
@@ -455,6 +476,9 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             // Obtener todos los delitos filtrados por permisos del usuario
             $query = static::getEloquentQuery();
             
+            // Cargar las relaciones necesarias
+            $query->with(['delincuentes', 'codigoDelito', 'region', 'comuna', 'sector', 'user', 'institucion']);
+            
             $filtrosAplicados = [
                 'Usuario' => auth()->user()->name,
                 'Rol' => auth()->user()->roles->first()->name ?? 'Sin rol',
@@ -464,9 +488,22 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
                 $filtrosAplicados['Institución'] = auth()->user()->institucion->nombre ?? 'N/A';
             }
-
-            // Usar el servicio para generar el PDF
-            return PdfExportService::exportDelitosToPdf($query, $filtrosAplicados, 'Reporte de Delitos');
+            
+            $data = [
+                'delitos' => $query->get(),
+                'titulo' => 'Reporte de Delitos',
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => $filtrosAplicados,
+                'periodo' => 'Todos los registros',
+            ];
+            
+            return response()->streamDownload(function () use ($data) {
+                echo Pdf::loadHtml(
+                    Blade::render('reports.delitos-pdf', $data)
+                )->setPaper('A4', 'landscape')->stream();
+            }, 'reporte_delitos_' . now()->format('Y_m_d_H_i_s') . '.pdf');
 
         } catch (\Exception $e) {
             Notification::make()
@@ -485,7 +522,15 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
             
             // Obtener filtros activos usando el método correcto de Filament
             $tableFilters = [];
-            $filtrosAplicados = [];
+            $filtrosAplicados = [
+                'Usuario' => auth()->user()->name,
+                'Rol' => auth()->user()->roles->first()->name ?? 'Sin rol',
+            ];
+            
+            // Si el usuario no es Admin General, agregar filtro de institución
+            if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                $filtrosAplicados['Institución'] = auth()->user()->institucion->nombre ?? 'N/A';
+            }
             
             // Obtener los filtros de la tabla usando el método correcto
             if (method_exists($livewire, 'getTable')) {
@@ -502,9 +547,35 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                     }
                 }
             }
-
-            // Usar el servicio para generar el PDF
-            return PdfExportService::exportDelitosToPdf($query, $filtrosAplicados, 'Reporte de Delitos');
+            
+            // Cargar las relaciones necesarias
+            $query->with(['delincuentes', 'codigoDelito', 'region', 'comuna', 'sector', 'user', 'institucion']);
+            
+            // Obtener periodo si hay filtros de fecha
+            if (isset($tableFilters['fecha_delito']) || isset($tableFilters['fecha_registro'])) {
+                $periodo = static::getPeriodoFromFilters($tableFilters);
+            } else {
+                $periodo = 'Todos los registros filtrados';
+            }
+            
+            // Obtener los datos
+            $delitos = $query->get();
+            
+            $data = [
+                'delitos' => $delitos,
+                'titulo' => 'Reporte de Delitos',
+                'fecha_generacion' => now()->format('d/m/Y H:i:s'),
+                'usuario' => auth()->user()->name,
+                'institucion' => auth()->user()->institucion->nombre ?? 'Sistema',
+                'filtros_aplicados' => $filtrosAplicados,
+                'periodo' => $periodo,
+            ];
+            
+            return response()->streamDownload(function () use ($data) {
+                echo Pdf::loadHtml(
+                    Blade::render('reports.delitos-pdf', $data)
+                )->setPaper('A4', 'landscape')->stream();
+            }, 'reporte_delitos_' . now()->format('Y_m_d_H_i_s') . '.pdf');
 
         } catch (\Exception $e) {
             Notification::make()
@@ -536,6 +607,14 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
     public static function exportSelectedToPdf(Collection $records)
     {
         try {
+            // Asegurar que todas las relaciones estén cargadas para los registros seleccionados
+            if ($records->isNotEmpty() && !$records->first()->relationLoaded('delincuentes')) {
+                $ids = $records->pluck('id')->toArray();
+                $records = Delito::whereIn('id', $ids)
+                    ->with(['delincuentes', 'codigoDelito', 'region', 'comuna', 'sector', 'user', 'institucion'])
+                    ->get();
+            }
+            
             $filtrosAplicados = [
                 'Usuario' => auth()->user()->name,
                 'Rol' => auth()->user()->roles->first()->name ?? 'Sin rol',
@@ -601,6 +680,7 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                 break;
             case 'delincuente_id':
                 if (!empty($filterState['values'])) {
+                    // Usar la relación correcta para los delincuentes a través de la tabla pivot
                     $query->whereHas('delincuentes', function ($q) use ($filterState) {
                         $q->whereIn('delincuentes.id', $filterState['values']);
                     });

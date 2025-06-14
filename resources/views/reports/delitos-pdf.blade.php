@@ -168,19 +168,7 @@
                 <span class="info-value">{{ $periodo ?? 'Todos los registros' }}</span>
             </div>
         </div>
-    </div>
-
-    @if(isset($filtros_aplicados) && count($filtros_aplicados) > 0)
-    <div class="filters-section">
-        <div class="filters-title">Filtros Aplicados:</div>
-        @foreach($filtros_aplicados as $filtro => $valor)
-            <div class="info-item">
-                <span class="info-label">{{ $filtro }}:</span>
-                <span class="info-value">{{ $valor }}</span>
-            </div>
-        @endforeach
-    </div>
-    @endif
+    </div>    {{-- Sección de filtros aplicados eliminada a petición del usuario --}}
 
     <table>
         <thead>

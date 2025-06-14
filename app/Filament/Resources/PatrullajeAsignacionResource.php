@@ -31,11 +31,11 @@ class PatrullajeAsignacionResource extends Resource
     }
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return auth()->user()->hasRole(['Administrador General', 'Operador']);
+        return auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador']);
     }
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return false;
+         return auth()->user()->hasRole(['Administrador General']);    
     }
     
     public static function form(Form $form): Form
@@ -45,10 +45,16 @@ class PatrullajeAsignacionResource extends Resource
             Forms\Components\Select::make('region_id')
     ->label('Región')
     ->options(function() {
-        return DB::table('comunas as c')
+        $query = DB::table('comunas as c')
             ->join('regiones as r', 'c.region_id', '=', 'r.id')  
-            ->join('delitos as d', 'd.comuna_id', '=', 'c.id')
-            ->select('r.id', 'r.nombre')
+            ->join('delitos as d', 'd.comuna_id', '=', 'c.id');
+        
+        // Si NO es Admin General, filtrar por institución
+        if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+            $query->where('d.institucion_id', auth()->user()->institucion_id);
+        }
+        
+        return $query->select('r.id', 'r.nombre')
             ->distinct()
             ->pluck('nombre', 'id')
             ->toArray();
@@ -64,11 +70,17 @@ class PatrullajeAsignacionResource extends Resource
                     $regionId = $get('region_id');
                     if (!$regionId) return [];
                     
-                    // Solo mostrar comunas con delitos de la región seleccionada
-                    return DB::table('comunas as c')
+                    // Consulta base para comunas con delitos de la región seleccionada
+                    $query = DB::table('comunas as c')
                         ->join('delitos as d', 'd.comuna_id', '=', 'c.id')
-                        ->where('c.region_id', $regionId)
-                        ->select('c.id', 'c.nombre')
+                        ->where('c.region_id', $regionId);
+                    
+                    // Si NO es Admin General, filtrar por institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $query->where('d.institucion_id', auth()->user()->institucion_id);
+                    }
+                    
+                    return $query->select('c.id', 'c.nombre')
                         ->distinct()
                         ->pluck('nombre', 'id')
                         ->toArray();
@@ -85,12 +97,18 @@ class PatrullajeAsignacionResource extends Resource
                     $comunaId = $get('comuna_id');
                     if (!$comunaId) return [];
                     
-                    // Consulta directa a delitos con JOIN a sectores como pediste
-                    $sectoresConDelitos = DB::table('delitos as d')
+                    // Consulta base a delitos con JOIN a sectores
+                    $query = DB::table('delitos as d')
                         ->join('sectores as s', 'd.sector_id', '=', 's.id')
                         ->join('comunas as c', 'd.comuna_id', '=', 'c.id')
-                        ->where('d.comuna_id', $comunaId)
-                        ->select('s.id', 's.nombre', DB::raw('count(*) as total_delitos'))
+                        ->where('d.comuna_id', $comunaId);
+                        
+                    // Si NO es Admin General, filtrar por institución
+                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                        $query->where('d.institucion_id', auth()->user()->institucion_id);
+                    }
+                    
+                    $sectoresConDelitos = $query->select('s.id', 's.nombre', DB::raw('count(*) as total_delitos'))
                         ->groupBy('s.id', 's.nombre')
                         ->having(DB::raw('count(*)'), '>=', 1) // Al menos 1 delito
                         ->pluck('nombre', 'id')
@@ -98,13 +116,13 @@ class PatrullajeAsignacionResource extends Resource
                     
                     // Si no hay sectores con delitos, mostrar mensaje
                     if (empty($sectoresConDelitos)) {
-                        return ['0' => 'No hay sectores con delitos registrados'];
+                        return ['0' => 'No hay sectores con delitos registrados para su institución'];
                     }
                     
                     return $sectoresConDelitos;
                 })
                 ->required()
-                ->helperText('Se muestran sectores con al menos 1 delito registrado'),
+                ->helperText('Se muestran sectores con al menos 1 delito registrado de su institución'),
 
             Forms\Components\Select::make('prioridad')
                 ->label('Prioridad')
@@ -136,6 +154,19 @@ class PatrullajeAsignacionResource extends Resource
         ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        
+        // Si el usuario es Admin General, muestra todo
+        if (auth()->user()->hasRole('Administrador General') || auth()->user()->hasRole('Super Admin')) {
+            return $query;
+        }
+        
+        // Si NO, solo muestra asignaciones de patrullaje de su institución
+        return $query->where('institucion_id', auth()->user()->institucion_id);
+    }
+    
     public static function table(Table $table): Table
     {
         return $table
