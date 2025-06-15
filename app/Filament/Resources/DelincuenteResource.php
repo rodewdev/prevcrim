@@ -129,7 +129,6 @@ class DelincuenteResource extends Resource
                 ->validationMessages([
                     'required' => 'Campo requerido',
                 ])
-                ->reactive()
                 ->afterStateUpdated(fn (callable $set) => $set('region_display', null)),
             Forms\Components\TextInput::make('ultimo_lugar_visto')
                 ->label('Último lugar visto')

@@ -25,4 +25,14 @@ class Sector extends Model
     {
         return $this->hasMany(Delito::class, 'sector_id');
     }
+    
+    public function patrullajesActivos()
+    {
+        return $this->hasMany(PatrullajeAsignacion::class, 'sector_id')
+            ->where('activo', true)
+            ->where(function ($query) {
+                $query->whereNull('fecha_fin')
+                    ->orWhere('fecha_fin', '>=', now());
+            });
+    }
 }

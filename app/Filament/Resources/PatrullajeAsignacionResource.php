@@ -60,7 +60,6 @@ class PatrullajeAsignacionResource extends Resource
             ->toArray();
     })
     ->required()
-    ->reactive()
     ->afterStateUpdated(fn ($state, $set) => $set('comuna_id', null)),
 
             // Selector de COMUNA filtrado por región
@@ -86,7 +85,6 @@ class PatrullajeAsignacionResource extends Resource
                         ->toArray();
                 })
                 ->required()
-                ->reactive()
                 ->searchable()
                 ->afterStateUpdated(fn ($state, $set) => $set('sector_id', null)),
 

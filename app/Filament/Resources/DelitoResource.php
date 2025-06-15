@@ -77,7 +77,6 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                 ->validationMessages([
                     'required' => 'Campo requerido',
                 ])
-                ->reactive()
                 ->afterStateUpdated(function (callable $set, $state) {
                     if ($state) {
                         $codigoDelito = CodigoDelito::find($state);
@@ -116,12 +115,23 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                 ->live(),
             Forms\Components\Select::make('comuna_id')
                 ->label('Comuna')
-                ->options(function (Forms\Get $get) {
-                    $regionId = $get('region_id');
-                    if (!$regionId) {
-                        return Comuna::pluck('nombre', 'id');
-                    }
-                    return Comuna::where('region_id', $regionId)->pluck('nombre', 'id');
+                ->options(function () {
+                    return Comuna::pluck('nombre', 'id');
+                })
+                ->required()
+                ->validationMessages([
+                    'required' => 'Campo requerido',
+                ])
+                ->searchable()
+                ->preload()
+                ->reactive()
+                ->afterStateUpdated(function (callable $set) {
+                    $set('sector_id', null);
+                }),
+            Forms\Components\Select::make('sector_id')
+                ->label('Sector')
+                ->options(function () {
+                    return \App\Models\Sector::pluck('nombre', 'id');
                 })
                 ->required()
                 ->validationMessages([
@@ -129,13 +139,6 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
                 ])
                 ->searchable()
                 ->preload(),
-            Forms\Components\Select::make('sector_id')
-                ->label('Sector')
-                ->relationship('sector', 'nombre')
-                ->required()
-                ->validationMessages([
-                    'required' => 'Campo requerido',
-                ]),
             Forms\Components\DatePicker::make('fecha')
                 ->label('Fecha del Delito')
                 ->required()
@@ -162,6 +165,25 @@ public static function canDelete(\Illuminate\Database\Eloquent\Model $record): b
 {
     $data['user_id'] = auth()->id();
     $data['institucion_id'] = auth()->user()->institucion_id;
+    // Asignar automáticamente region_id según la comuna seleccionada
+    if (!empty($data['comuna_id'])) {
+        $comuna = \App\Models\Comuna::find($data['comuna_id']);
+        if ($comuna) {
+            $data['region_id'] = $comuna->region_id;
+        }
+    }
+    return $data;
+}
+
+public static function mutateFormDataBeforeSave(array $data): array
+{
+    // Asignar automáticamente region_id según la comuna seleccionada
+    if (!empty($data['comuna_id'])) {
+        $comuna = \App\Models\Comuna::find($data['comuna_id']);
+        if ($comuna) {
+            $data['region_id'] = $comuna->region_id;
+        }
+    }
     return $data;
 }
 
