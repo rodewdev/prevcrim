@@ -73,14 +73,25 @@ class UserResource extends Resource
                 ->label('RUT')
                 ->unique(User::class, 'rut', fn ($record) => $record)
                 ->maxLength(12)
-                ->required()
+                ->required(fn ($context) => $context === 'create') // Solo requerido al crear
                 ->placeholder('11.111.111-1')
-                ->helperText('Ingrese un RUT chileno válido con formato XX.XXX.XXX-X')
-                ->rules([new RutChileno()])
-                // Deshabilitar edición del RUT en formulario de edición
-                ->disabled(fn ($context) => $context === 'edit')
+                ->helperText(fn ($context) => $context === 'edit' 
+                    ? 'El RUT no se puede modificar' 
+                    : 'Ingrese un RUT chileno válido con formato XX.XXX.XXX-X')
+                ->rules([
+                    fn ($context) => $context === 'create' ? new RutChileno() : null
+                ]) // Solo validar RUT al crear
+                ->validationMessages([
+                    'unique' => 'Este RUT ya pertenece a otro usuario registrado en el sistema.',
+                ])
+                ->disabled(fn ($context) => $context === 'edit') // Deshabilitar en edición
                 ->live()
-                ->afterStateUpdated(function (?string $state, Forms\Components\TextInput $component, $set, $livewire) {
+                ->afterStateUpdated(function (?string $state, Forms\Components\TextInput $component, $set, $livewire, $context) {
+                    // Solo procesar validaciones en contexto de creación
+                    if ($context === 'edit') {
+                        return;
+                    }
+                    
                     // Si el estado es null, no procesar
                     if (!$state) {
                         $livewire->addError('rut', 'Ingrese un RUT válido. Ejemplo: 11.111.111-1');

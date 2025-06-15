@@ -605,10 +605,64 @@ class DelincuenteResource extends Resource
                     ->label('Exportar a PDF')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('success')
-                    ->action(function () {
-                        $query = static::getEloquentQuery();
+                    ->action(function ($livewire) {
+                        // Obtener la query con todos los filtros aplicados
+                        $filteredQuery = $livewire->getFilteredTableQuery();
+                        
+                        // Obtener los filtros activos para mostrar en el PDF
                         $filtros = [];
-                        return \App\Services\PdfExportService::exportDelincuentesToPdf($query, $filtros, 'Reporte de Delincuentes');
+                        $tableFilters = $livewire->tableFilters;
+                        
+                        // Construir array de filtros activos para mostrar en el PDF
+                        if (!empty($tableFilters['estado']['value'])) {
+                            $estadoLabels = ['P' => 'Preso', 'L' => 'Libre', 'A' => 'Orden de Arresto'];
+                            $filtros['Estado'] = $estadoLabels[$tableFilters['estado']['value']] ?? $tableFilters['estado']['value'];
+                        }
+                        
+                        if (!empty($tableFilters['comuna_id']['value'])) {
+                            $comuna = Comuna::find($tableFilters['comuna_id']['value']);
+                            $filtros['Comuna de Residencia'] = $comuna ? $comuna->nombre : 'Desconocida';
+                        }
+                        
+                        if (!empty($tableFilters['codigo_delito']['value'])) {
+                            $codigo = CodigoDelito::find($tableFilters['codigo_delito']['value']);
+                            $filtros['Código de Delito'] = $codigo ? $codigo->codigo . ' - ' . $codigo->descripcion : 'Desconocido';
+                        }
+                        
+                        if (!empty($tableFilters['region']['value'])) {
+                            $region = Region::find($tableFilters['region']['value']);
+                            $filtros['Región'] = $region ? $region->nombre : 'Desconocida';
+                        }
+                        
+                        if (!empty($tableFilters['comuna']['value'])) {
+                            $comuna = Comuna::find($tableFilters['comuna']['value']);
+                            $filtros['Comuna (Delitos)'] = $comuna ? $comuna->nombre : 'Desconocida';
+                        }
+                        
+                        if (!empty($tableFilters['sector']['value'])) {
+                            $sector = Sector::find($tableFilters['sector']['value']);
+                            $filtros['Sector'] = $sector ? $sector->nombre : 'Desconocido';
+                        }
+                        
+                        if (!empty($tableFilters['fecha_comision']['fecha_desde']) || !empty($tableFilters['fecha_comision']['fecha_hasta'])) {
+                            $fechaFiltro = '';
+                            if (!empty($tableFilters['fecha_comision']['fecha_desde'])) {
+                                $fechaFiltro .= 'Desde: ' . $tableFilters['fecha_comision']['fecha_desde'];
+                            }
+                            if (!empty($tableFilters['fecha_comision']['fecha_hasta'])) {
+                                if ($fechaFiltro) $fechaFiltro .= ' - ';
+                                $fechaFiltro .= 'Hasta: ' . $tableFilters['fecha_comision']['fecha_hasta'];
+                            }
+                            $filtros['Fecha de Comisión'] = $fechaFiltro;
+                        }
+                        
+                        // Generar título dinámico basado en filtros
+                        $titulo = 'Reporte de Delincuentes';
+                        if (!empty($filtros)) {
+                            $titulo .= ' (Filtrado)';
+                        }
+                        
+                        return \App\Services\PdfExportService::exportDelincuentesToPdf($filteredQuery, $filtros, $titulo);
                     })
                     ->visible(fn () => auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador'])),
             ])

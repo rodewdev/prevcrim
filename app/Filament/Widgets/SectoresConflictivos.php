@@ -16,10 +16,7 @@ class SectoresConflictivos extends ChartWidget
     
     protected int | string | array $columnSpan = 'full';
     
-    // Filtros de período
-    public ?string $periodoFiltro = 'mes'; // Por defecto, último mes
-    
-    // Opciones de periodo
+    // Opciones de periodo para el filtro
     public function getPeriodoOptions(): array
     {
         return [
@@ -54,7 +51,9 @@ class SectoresConflictivos extends ChartWidget
         
         // Aplicar filtro de periodo
         $fechaDesde = null;
-        switch ($this->getFilter()) {
+        $filtroActual = $this->filter ?? 'mes'; // Usar $this->filter en lugar de $this->getFilter()
+        
+        switch ($filtroActual) {
             case 'semana':
                 $fechaDesde = Carbon::now()->subWeek();
                 break;

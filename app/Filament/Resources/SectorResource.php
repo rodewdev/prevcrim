@@ -69,10 +69,13 @@ class SectorResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => auth()->check() && auth()->user()->hasRole('Administrador General')),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->check() && auth()->user()->hasRole('Administrador General')),
                 ]),
             ]);
     }
@@ -106,6 +109,14 @@ class SectorResource extends Resource
     }
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        return false;
+        // Verificar que el usuario esté autenticado y tenga el rol correcto
+        return auth()->check() && auth()->user()->hasRole('Administrador General');
     }
+
+    public static function canDeleteAny(): bool
+    {
+        // Controla si se puede eliminar cualquier registro (acciones en masa)
+        return auth()->check() && auth()->user()->hasRole('Administrador General');
+    }
+
 }
