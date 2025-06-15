@@ -636,19 +636,24 @@ class AnalisisZonasConflictivas extends Page implements HasTable
                 $indiceNumerico = $this->getIndiceNumerico($sector);
                 $tendenciaPct = $this->getTendenciaPorcentaje($sector);
                 $tienePatrullaje = $this->tienePatrullajeActivo($sector);
-                
+
                 if ($indiceNumerico >= 8) {
                     $zonasAltoRiesgo++;
                 }
-                
+
                 if ($tienePatrullaje) {
                     $conPatrullaje++;
                 }
-                
+
+                // Obtener comuna y región del delito más reciente
+                $delito = $sector->delitos()->with('comuna.region')->orderByDesc('fecha')->first();
+                $comunaNombre = $delito && $delito->comuna ? $delito->comuna->nombre : 'Sin comuna';
+                $regionNombre = $delito && $delito->comuna && $delito->comuna->region ? $delito->comuna->region->nombre : 'Sin región';
+
                 $zonasData[] = [
                     'sector' => $sector->nombre,
-                    'comuna' => $sector->comuna->nombre,
-                    'region' => $sector->comuna->region->nombre,
+                    'comuna' => $comunaNombre,
+                    'region' => $regionNombre,
                     'total_delitos' => $sector->total_delitos,
                     'indice' => $indiceNumerico,
                     'delito_predominante' => $this->getDelitoPredominanteSinCodigo($sector),
