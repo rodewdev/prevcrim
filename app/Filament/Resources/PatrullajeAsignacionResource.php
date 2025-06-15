@@ -93,34 +93,25 @@ class PatrullajeAsignacionResource extends Resource
                 ->label('Sector')
                 ->options(function ($get) {
                     $comunaId = $get('comuna_id');
-                    if (!$comunaId) return [];
-                    
-                    // Consulta base a delitos con JOIN a sectores
-                    $query = DB::table('delitos as d')
-                        ->join('sectores as s', 'd.sector_id', '=', 's.id')
-                        ->join('comunas as c', 'd.comuna_id', '=', 'c.id')
-                        ->where('d.comuna_id', $comunaId);
-                        
-                    // Si NO es Admin General, filtrar por institución
-                    if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
-                        $query->where('d.institucion_id', auth()->user()->institucion_id);
+                    if (!$comunaId) {
+                        // Si no hay comuna seleccionada, mostrar todos los sectores con delitos
+                        $sectores = \App\Models\Sector::whereHas('delitos')->get();
+                        if ($sectores->isEmpty()) {
+                            return ['0' => 'No hay sectores con delitos registrados'];
+                        }
+                        return $sectores->pluck('nombre', 'id')->toArray();
                     }
-                    
-                    $sectoresConDelitos = $query->select('s.id', 's.nombre', DB::raw('count(*) as total_delitos'))
-                        ->groupBy('s.id', 's.nombre')
-                        ->having(DB::raw('count(*)'), '>=', 1) // Al menos 1 delito
-                        ->pluck('nombre', 'id')
-                        ->toArray();
-                    
-                    // Si no hay sectores con delitos, mostrar mensaje
-                    if (empty($sectoresConDelitos)) {
-                        return ['0' => 'No hay sectores con delitos registrados para su institución'];
+                    // Buscar sectores que tengan delitos en la comuna seleccionada
+                    $sectores = \App\Models\Sector::whereHas('delitos', function ($q) use ($comunaId) {
+                        $q->where('comuna_id', $comunaId);
+                    })->get();
+                    if ($sectores->isEmpty()) {
+                        return ['0' => 'No hay sectores con delitos registrados para esta comuna'];
                     }
-                    
-                    return $sectoresConDelitos;
+                    return $sectores->pluck('nombre', 'id')->toArray();
                 })
                 ->required()
-                ->helperText('Se muestran sectores con al menos 1 delito registrado de su institución'),
+                ->helperText('Solo se muestran sectores con al menos 1 delito registrado.'),
 
             Forms\Components\Select::make('prioridad')
                 ->label('Prioridad')
