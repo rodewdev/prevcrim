@@ -59,13 +59,10 @@ class UserResource extends Resource
     public static function form(Form $form): Form
     {
         $user = auth()->user();
-        $isJefeZona = $user && $user->hasRole('Jefe de Zona');
-        $isPazCiudadana = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'Paz Ciudadana');
-        $isPDI = $user && $user->institucion && str_contains(strtolower($user->institucion->nombre), 'Policia de Investigaciones');
         $isAdmin = $user && $user->hasRole('Administrador General');
         $roleOptions = Role::pluck('name', 'name');
-        if (($isPazCiudadana || $isPDI) && !$isAdmin) {
-            $roleOptions = $roleOptions->only(['Jefe de Zona', 'Operador']);
+        if (!$isAdmin) {
+            $roleOptions = $roleOptions->except(['Administrador General']);
         }
         return $form
             ->schema([
