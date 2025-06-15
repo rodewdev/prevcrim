@@ -182,25 +182,21 @@ class AnalisisZonasConflictivas extends Page implements HasTable
         
         // Filtrar por región si está seleccionada
         if ($this->regionSeleccionada) {
-            // Verificamos primero si la región existe
             $region = \App\Models\Region::find($this->regionSeleccionada);
             if ($region) {
                 \Illuminate\Support\Facades\Log::info('Aplicando filtro de región: ' . $region->nombre . ' (ID: ' . $this->regionSeleccionada . ')');
-                $delitosFilteredSubQuery->whereHas('sector.comuna.region', function ($q) {
-                    $q->where('id', $this->regionSeleccionada);
+                $delitosFilteredSubQuery->whereHas('comuna', function ($q) {
+                    $q->where('region_id', $this->regionSeleccionada);
                 });
             }
         }
-        
+
         // Filtrar por comuna si está seleccionada
         if ($this->comunaSeleccionada) {
-            // Verificamos primero si la comuna existe
             $comuna = \App\Models\Comuna::find($this->comunaSeleccionada);
             if ($comuna) {
                 \Illuminate\Support\Facades\Log::info('Aplicando filtro de comuna: ' . $comuna->nombre . ' (ID: ' . $this->comunaSeleccionada . ')');
-                $delitosFilteredSubQuery->whereHas('sector', function ($q) {
-                    $q->where('comuna_id', $this->comunaSeleccionada);
-                });
+                $delitosFilteredSubQuery->where('comuna_id', $this->comunaSeleccionada);
             }
         }
           // Asegurar que la consulta tenga condiciones antes de obtener resultados
@@ -216,71 +212,48 @@ class AnalisisZonasConflictivas extends Page implements HasTable
         $sectorIdsWithDelitos = $delitosFilteredSubQuery->select('sector_id')
             ->whereNotNull('sector_id')
             ->distinct()
-            ->pluck('sector_id');
-        
-        // Log para depuración
-        \Illuminate\Support\Facades\Log::info('Sectores con delitos encontrados: ' . count($sectorIdsWithDelitos) . 
-                                           ' - IDs: ' . implode(', ', $sectorIdsWithDelitos->take(10)->toArray()) . 
-                                           (count($sectorIdsWithDelitos) > 10 ? '...' : ''));
-        
-        // Consulta principal de sectores
+            ->pluck('sector_id');        // Consulta principal de sectores basada SOLO en delitos filtrados
         $query = Sector::query();
         
+        // Filtrar sectores que tienen delitos con los criterios especificados
         if ($sectorIdsWithDelitos->count() > 0) {
             $query->whereIn('id', $sectorIdsWithDelitos);
         } else {
-            // Si no hay filtros y no hay sectores, mostrar todos los sectores con al menos un delito
-            $query->has('delitos', '>', 0);
+            // Si no hay sectores con delitos filtrados, no mostrar nada
+            $query->whereRaw('1 = 0'); // No results
         }
         
+        // Contar delitos con los mismos filtros aplicados
         $query->withCount(['delitos as total_delitos' => function ($q) {
-            // Aplicar filtro por período
             if ($this->periodoSeleccionado && $this->periodoSeleccionado != 'todo') {
                 $fechaDesde = $this->getFechaDesde($this->periodoSeleccionado);
                 $q->where('fecha', '>=', $fechaDesde);
             }
-                  // Aplicar filtro por institución del usuario
-                if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
-                    $institucionId = auth()->user()->institucion_id;
-                    if ($institucionId) {
-                        $q->where('institucion_id', $institucionId);
-                        \Illuminate\Support\Facades\Log::info('Aplicando filtro de institución en count: ' . $institucionId);
-                    }
+            if (!auth()->user()->hasRole(['Administrador General', 'Super Admin'])) {
+                $institucionId = auth()->user()->institucion_id;
+                if ($institucionId) {
+                    $q->where('institucion_id', $institucionId);
                 }
-                
-                // Filtro por tipo de delito
-                if ($this->tipoDelitoSeleccionado) {
-                    $q->where('codigo_delito_id', $this->tipoDelitoSeleccionado);
-                    \Illuminate\Support\Facades\Log::info('Aplicando filtro de tipo delito en count: ' . $this->tipoDelitoSeleccionado);                }
-                
-                // Filtrar por región/comuna si están seleccionados
-                if ($this->regionSeleccionada) {
-                    $q->where('region_id', $this->regionSeleccionada);
-                }
-                
-                if ($this->comunaSeleccionada) {
-                    $q->where('comuna_id', $this->comunaSeleccionada);
-                }
-            }])
-            ->with(['comuna', 'comuna.region']);
-            
-        // Filtro por región y comuna
-        if ($this->regionSeleccionada) {
-            $query->whereHas('comuna', function ($q) {
-                $q->where('region_id', $this->regionSeleccionada);
-            });
-        }
+            }
+            if ($this->tipoDelitoSeleccionado) {
+                $q->where('codigo_delito_id', $this->tipoDelitoSeleccionado);
+            }
+            // Filtro por región: delitos en comunas de esa región
+            if ($this->regionSeleccionada) {
+                $q->whereIn('comuna_id', function($sub) {
+                    $sub->select('id')->from('comunas')->where('region_id', $this->regionSeleccionada);
+                });
+            }
+            // Filtro por comuna: delitos en esa comuna
+            if ($this->comunaSeleccionada) {
+                $q->where('comuna_id', $this->comunaSeleccionada);
+            }
+        }])->with(['delitos.comuna.region']);
         
-        if ($this->comunaSeleccionada) {
-            $query->where('comuna_id', $this->comunaSeleccionada);
-        }
-          // Filtro para sectores sin patrullaje asignado
+        // NO filtrar por sector.comuna_id o sector.region - los filtros ya están aplicados a través de los delitos        // Filtro para sectores sin patrullaje asignado
         if ($this->mostrarSoloSinPatrullaje) {
             $query->whereDoesntHave('patrullajesActivos');
         }
-        
-        // Asegurar que después de todos los filtros sigan apareciendo sectores con delitos
-        $query->has('delitos', '>', 0);
 
         // Log para debug
         $sql = $query->toSql();
@@ -294,14 +267,12 @@ class AnalisisZonasConflictivas extends Page implements HasTable
                 \Illuminate\Support\Facades\Log::info('No hay resultados con los filtros actuales. Verificando si hay delitos sin estos filtros...');
                 
                 // Verificar cuántos sectores tendríamos sin los filtros de región/comuna
-                $countSinFiltros = Sector::whereIn('id', $sectorIdsWithDelitos)->count();
+                $countSinFiltros = Sector::has('delitos', '>', 0)->count();
                 \Illuminate\Support\Facades\Log::info('Sectores sin filtros de región/comuna: ' . $countSinFiltros);
             }
         }
         
         $query->with(['comuna', 'comuna.region']);
-        // Removed: $query->whereNotNull('comuna_id');
-        // Removed debug log for comunas and regiones
         
         return $query->orderByDesc('total_delitos');
     }
@@ -323,6 +294,10 @@ class AnalisisZonasConflictivas extends Page implements HasTable
             Tables\Columns\TextColumn::make('comuna_delito')
                 ->label('Comuna')
                 ->getStateUsing(function (Sector $record) {
+                    if ($this->comunaSeleccionada) {
+                        $comuna = \App\Models\Comuna::find($this->comunaSeleccionada);
+                        return $comuna ? $comuna->nombre : 'Sin comuna';
+                    }
                     $delito = $record->delitos()->with('comuna')->orderByDesc('fecha')->first();
                     return $delito && $delito->comuna ? $delito->comuna->nombre : 'Sin comuna';
                 }),
@@ -330,6 +305,14 @@ class AnalisisZonasConflictivas extends Page implements HasTable
             Tables\Columns\TextColumn::make('region_delito')
                 ->label('Región')
                 ->getStateUsing(function (Sector $record) {
+                    if ($this->regionSeleccionada) {
+                        $region = \App\Models\Region::find($this->regionSeleccionada);
+                        return $region ? $region->nombre : 'Sin región';
+                    }
+                    if ($this->comunaSeleccionada) {
+                        $comuna = \App\Models\Comuna::find($this->comunaSeleccionada);
+                        return $comuna && $comuna->region ? $comuna->region->nombre : 'Sin región';
+                    }
                     $delito = $record->delitos()->with('comuna.region')->orderByDesc('fecha')->first();
                     return $delito && $delito->comuna && $delito->comuna->region ? $delito->comuna->region->nombre : 'Sin región';
                 }),
@@ -437,10 +420,15 @@ class AnalisisZonasConflictivas extends Page implements HasTable
                     $value = $state['value'] ?? null;
                     \Illuminate\Support\Facades\Log::info('Región seleccionada: ' . ($value ?? 'ninguna'));
                     $this->regionSeleccionada = $value;
-                    $this->comunaSeleccionada = null;                    if (!$value) return $query;
+                    $this->comunaSeleccionada = null;
                     
-                    return $query->whereHas('comuna.region', function ($q) use ($value) {
-                        $q->where('id', $value);
+                    if (!$value) return $query;
+                    
+                    // Filtrar sectores que tienen delitos en comunas de esa región
+                    return $query->whereHas('delitos', function ($q) use ($value) {
+                        $q->whereIn('comuna_id', function($sub) use ($value) {
+                            $sub->select('id')->from('comunas')->where('region_id', $value);
+                        });
                     });
                 }),
                   SelectFilter::make('comuna_id')
@@ -484,9 +472,14 @@ class AnalisisZonasConflictivas extends Page implements HasTable
                 })                ->query(function (Builder $query, $state) {
                     $value = $state['value'] ?? null;
                     $this->comunaSeleccionada = $value;
-                    \Illuminate\Support\Facades\Log::info('Comuna seleccionada: ' . ($value ?? 'ninguna'));                    if (!$value) return $query;
+                    \Illuminate\Support\Facades\Log::info('Comuna seleccionada: ' . ($value ?? 'ninguna'));
                     
-                    return $query->where('comuna_id', $value);
+                    if (!$value) return $query;
+                    
+                    // Filtrar sectores que tienen delitos en esa comuna
+                    return $query->whereHas('delitos', function ($q) use ($value) {
+                        $q->where('comuna_id', $value);
+                    });
                 }),
                   SelectFilter::make('tipo_delito')
                 ->label('Tipo de Delito')
@@ -501,11 +494,12 @@ class AnalisisZonasConflictivas extends Page implements HasTable
                             $q->where('institucion_id', $institucion_id);
                         });
                     }
-                    
-                    // Aplicar filtros adicionales de región y comuna si están seleccionados
+                      // Aplicar filtros adicionales de región y comuna si están seleccionados
                     if ($this->regionSeleccionada) {
-                        $query->whereHas('delitos.sector.comuna.region', function ($q) {
-                            $q->where('id', $this->regionSeleccionada);
+                        $query->whereHas('delitos', function ($q) {
+                            $q->whereIn('comuna_id', function($sub) {
+                                $sub->select('id')->from('comunas')->where('region_id', $this->regionSeleccionada);
+                            });
                         });
                     }
                     
