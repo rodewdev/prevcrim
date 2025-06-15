@@ -42,10 +42,26 @@ class SectoresConflictivos extends ChartWidget
     protected function getData(): array
     {
         $user = auth()->user();
+        
+        // Verificar que el usuario existe y tiene institución (si no es admin)
+        if (!$user) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
+        
         $query = Delito::query();
         
         // Si no es admin, solo ve datos de su institución
-        if (!$user->hasRole(['Administrador General', 'Super Admin'])) {
+        if (!$user->hasRole('Administrador General')) {
+            if (!$user->institucion_id) {
+                // Usuario sin institución no ve datos
+                return [
+                    'datasets' => [],
+                    'labels' => [],
+                ];
+            }
             $query->where('institucion_id', $user->institucion_id);
         }
         
@@ -79,6 +95,14 @@ class SectoresConflictivos extends ChartWidget
             ->orderByDesc('total_delitos')
             ->limit(10)
             ->get();
+        
+        // Si no hay datos, devolver vacío
+        if ($datos->isEmpty()) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
         
         // Obtener info de patrullajes asignados a estos sectores
         $sectorIds = $datos->pluck('sector_id')->toArray();

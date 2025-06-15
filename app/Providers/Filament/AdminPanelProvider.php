@@ -44,10 +44,12 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 Widgets\AccountWidget::class,
                 // Widgets\FilamentInfoWidget::class, // Removed Filament Info Widget
+                \App\Filament\Widgets\InstitutionInfoWidget::class,
                 \App\Filament\Widgets\GraficoIntegradoDelitos::class,
+                \App\Filament\Widgets\SectoresConflictivos::class,
                 \App\Filament\Widgets\DelitosPorComunaChart::class,
                 \App\Filament\Widgets\DelitosPorRegionChart::class,
-                \App\Filament\Widgets\DelitosPorSectorChart::class,
+                // \App\Filament\Widgets\DelitosPorSectorChart::class, // Eliminado - no hay datos de sectores
             ])
             ->middleware([
                 EncryptCookies::class,

@@ -18,23 +18,46 @@ class DelitosPorRegionChart extends ChartWidget
     public static function canView(): bool
     {
         return auth()->check() && auth()->user()->hasRole(['Administrador General', 'Jefe de Zona', 'Operador']);
-    }
-
-    protected function getData(): array
+    }    protected function getData(): array
     {
         $user = auth()->user();
+        
+        // Verificar que el usuario existe y tiene institución (si no es admin)
+        if (!$user) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
+        
         $query = Delito::query();
         
         // Si no es admin, solo ve datos de su institución
         if (!$user->hasRole('Administrador General')) {
+            if (!$user->institucion_id) {
+                // Usuario sin institución no ve datos
+                return [
+                    'datasets' => [],
+                    'labels' => [],
+                ];
+            }
             $query->where('institucion_id', $user->institucion_id);
         }
 
         // Obtener datos agrupados por región
         $datos = $query->select('region_id', DB::raw('count(*) as total'))
+            ->whereNotNull('region_id')
             ->groupBy('region_id')
             ->orderByDesc('total')
             ->get();
+
+        // Si no hay datos, devolver vacío
+        if ($datos->isEmpty()) {
+            return [
+                'datasets' => [],
+                'labels' => [],
+            ];
+        }
 
         // Obtener nombres de regiones y contar delitos
         $labels = [];
